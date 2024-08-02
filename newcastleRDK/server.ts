@@ -114,24 +114,24 @@ let mousePos: mouseTracking = {
 
 const expValues = {
 	trials: 40,
-	trialLength: 2,
+	trialLength: 6,
 	coherence: [0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9],
 	directions: ["left", "right"],
 	block: ["sep", "collab"],
-	breakLength: 2,
+	breakLength: 6,
 	dataPath: "data/",
 	blockLength: 20,
 	practiceTrials: 10,
-	practiceLength1: 6,
-	practiceLength2: 2,
+	practiceLength1: 4,
+	practiceLength2: 4,
 	practiceBreak1: 4,
-	practiceBreak2: 2,
+	practiceBreak2: 4,
 };
 /*
 REMEBER TO REMOVE OR CHANGE THIS
 */
 const testConsts = {
-	skipIntro: true,
+	skipIntro: false,
 };
 /*
 Base RDK is used to reset the state between trials and blocks. 
@@ -268,6 +268,7 @@ function chooseBlock(exp: string) {
 		if (block === "collab") {
 			blocks = ["collab", "sep"];
 		}
+		console.log(blocks);
 		return blocks;
 	}
 	if (exp === "collab") {
@@ -494,7 +495,6 @@ function updatePlayerMouseState(
 		newMousePos.player1.timestamp = createTimestamp(timeStamp);
 		mouseArray.push(newMousePos);
 		let length = mouseArray.length;
-		console.log(length);
 	}
 	if (playerID === "player2") {
 		newMousePos.player1.trialNo = state.trialNo;
@@ -564,7 +564,7 @@ function createTrials(state: State, blockType: string) {
 		);
 		return trialsDirections;
 	} else if (blockType === "practice") {
-		let trials = 6;
+		let trials = 10;
 		let choices = expValues.directions;
 		let coherences = expValues.coherence;
 		let trialsDirectionArray = [];
@@ -699,7 +699,6 @@ function updateCollabStateOnResponse(
 			state.P1RDK.attempts[id] += 1;
 			state.P1RDK.reactionTime[id].push(rt);
 			state.P1RDK.incorrectDirection[id].push(state.P1RDK.direction[id]);
-			console.log(state.P1RDK.incorrectDirection[id]);
 		} else if (player === "player2") {
 			state.P2RDK.attempts[id] += 1;
 			state.P2RDK.reactionTime[id].push(rt);
@@ -722,7 +721,6 @@ function checkResponse(
 		case "collab":
 			if (player === "player1") {
 				if (state.P1RDK.mostRecentChoice !== id) {
-					console.log("Player 1 has already responded");
 				} else {
 					if (state.RDK.direction[id] === data) {
 						updateCollabStateOnResponse(
@@ -815,7 +813,6 @@ function checkResponse(
 						state.P1RDK.attempts[id] += 1;
 						state.P1RDK.reactionTime[id].push(rt);
 						state.P1RDK.incorrectDirection[id].push(state.P1RDK.direction[id]);
-						console.log(state.P1RDK.incorrectDirection[id]);
 						chooseNewDirection(state, "player1", id, stage, block);
 					}
 				}
@@ -842,7 +839,6 @@ function checkResponse(
 						state.P2RDK.attempts[id] += 1;
 						state.P2RDK.reactionTime[id].push(rt);
 						state.P2RDK.incorrectDirection[id].push(state.P2RDK.direction[id]);
-						console.log(state.P2RDK.incorrectDirection[id]);
 						chooseNewDirection(state, "player2", id, stage, block);
 					}
 				}
@@ -855,6 +851,26 @@ function resetStateonConnection(data: State) {
 	let newState = Object.assign({}, baseState);
 	newState.gameNo = gameNo;
 	return newState;
+}
+function resetMouseState(data: mouseTracking) {
+	let newMouse = Object.assign({}, data);
+	newMouse.player1 = {
+		trialNo: 0,
+		x: 0,
+		y: 0,
+		stage: "",
+		block: "",
+		timestamp: 0,
+	};
+	newMouse.player2 = {
+		trialNo: 0,
+		x: 0,
+		y: 0,
+		stage: "",
+		block: "",
+		timestamp: 0,
+	};
+	return newMouse;
 }
 
 function resetState(state: State, baseRDK: rdk, newBlock: boolean) {
@@ -1104,14 +1120,12 @@ function handlePracticeTrials(directions: Array<Array<string>>, block: string) {
 	if (state.trialNo < 7) {
 		trialTimeout = setTimeout(() => {
 			writeMouse(mouseArray);
-			console.log(mouseArray);
 			startPracticeBreak(block);
 		}, expValues.practiceLength1 * 1000);
 	} else {
 		trialTimeout = setTimeout(() => {
 			startPracticeBreak(block);
 			writeMouse(mouseArray);
-			console.log(mouseArray);
 		}, expValues.practiceLength2 * 1000);
 	}
 }
@@ -1275,6 +1289,7 @@ function handleIntroductionMessaging(
 ) {
 	switch (type) {
 		case "consent":
+			console.log("intro", data);
 			if (ws === connections.player1) {
 				state.player1.consent = true;
 				state.player1.age = Number(data.age);
@@ -1292,6 +1307,7 @@ function handleIntroductionMessaging(
 			}
 			break;
 		case "completedInstructions":
+			console.log("intro", data);
 			if (connections.player1 === ws) {
 				P1InstructionsFinished = true;
 			}
@@ -1305,11 +1321,14 @@ function handleIntroductionMessaging(
 				connections.player2?.send(
 					JSON.stringify({ stage: "practice", message: "beginGame" })
 				);
+				P1InstructionsFinished = false;
+				P2InstructionsFinished = false;
 			}
 			break;
 	}
 }
 function practiceSepMessaging(data: any, ws: WebSocket, connections: any) {
+	console.log(data);
 	switch (data.type) {
 		case "instructionsComplete":
 			if (connections.player1 === ws) {
@@ -1412,6 +1431,7 @@ function practiceSepMessaging(data: any, ws: WebSocket, connections: any) {
 	}
 }
 function practiceCollabMessaging(data: any, ws: WebSocket, connections: any) {
+	console.log(data);
 	switch (data.type) {
 		case "gameReady":
 			if (connections.player1 === ws) {
@@ -1527,6 +1547,7 @@ function practiceCollabMessaging(data: any, ws: WebSocket, connections: any) {
 	}
 }
 function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
+	console.log("collab", data);
 	switch (data.type) {
 		case "instructionsComplete":
 			if (connections.player1 === ws) {
@@ -1626,6 +1647,7 @@ function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
 	}
 }
 function gameSepMessaging(data: any, ws: WebSocket, connections: any) {
+	console.log("sep", data);
 	switch (data.type) {
 		case "instructionsComplete":
 			if (connections.player1 === ws) {
@@ -1753,6 +1775,9 @@ wss.on("connection", function (ws) {
 	if (connections.player1 && connections.player2) {
 		if (!testConsts.skipIntro) {
 			state = resetStateonConnection(state);
+			mousePos = resetMouseState(mousePos);
+			dataArray = [];
+			mouseArray = [];
 			state.stage = "intro";
 			state.RDK.coherence = shuffle(expValues.coherence);
 			connections.player1.send(
@@ -1774,6 +1799,7 @@ wss.on("connection", function (ws) {
 
 	ws.on("message", function message(m) {
 		const data = JSON.parse(m.toString("utf-8"));
+		console.log(data);
 		switch (data.stage) {
 			case "intro":
 				handleIntroductionMessaging(data.type, ws, connections, data.data);

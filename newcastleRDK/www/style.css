@@ -1,0 +1,69 @@
+/* style.css */
+#main {
+  width: 100vw; /* 100% of the viewport width */
+  height: 100vh; /* 100% of the viewport height */
+  margin: 0;
+  padding: 0; 
+  box-sizing: border-box; /* Optional: Ensures padding and border don't affect dimensions */
+  border: 1px solid #000; /* Optional: Border for visual distinction */
+  background-color: #808080; /* change background color here */
+}
+body {
+  margin: 0;
+  padding: 0;
+}
+.end-of-experiment {
+  text-align: center;
+  width: 500px; /* Width of the square */
+  height: 600px; /* Height of the square */
+  margin: 0 auto; /* Center the div horizontally */
+  font-size: 18px;
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+  overflow: auto; /* Add scrollbar if content overflows */
+}
+.collabInstructions {
+  text-align: center;
+  width: 500px; /* Width of the square */
+  height: 600px; /* Height of the square */
+  margin: 0 auto; /* Center the div horizontally */
+  font-size: 18px;
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+  overflow: auto; /* Add scrollbar if content overflows */
+}
+.sepInstructions {
+  text-align: center;
+  width: 500px; /* Width of the square */
+  height: 600px; /* Height of the square */
+  margin: 0 auto; /* Center the div horizontally */
+  font-size: 18px;
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+  overflow: auto; /* Add scrollbar if content overflows */
+}
+.instructions{
+  text-align: center;
+  width: 500px; /* Width of the square */
+  height: 600px; /* Height of the square */
+  margin: 0 auto; /* Center the div horizontally */
+  font-size: 18px;
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+  overflow: auto; 
+}
+.breakDiv{
+  text-align: center;
+  width: 500px; /* Width of the square */
+  height: 600px; /* Height of the square */
+  margin: 0 auto; /* Center the div horizontally */
+  font-size: 18px;
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+  overflow: auto; 
+}
+.practiceInstructions{
+  text-align: center;
+  width: 500px; /* Width of the square */
+  height: 600px; /* Height of the square */
+  margin: 0 auto; /* Center the div horizontally */
+  font-size: 18px;
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+  overflow: auto; 
+}
+
