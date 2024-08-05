@@ -339,18 +339,22 @@ export default class Game {
 			this.breakdiv.remove();
 		}
 		const pixelPos = [
-			// Top and bottom
+			// Top Center
 			[this.canvas.height / 8, this.canvas.width / 2],
-			[(this.canvas.height / 8) * 7, this.canvas.width / 2],
-			// Left and right
-			[this.canvas.height / 2, this.canvas.width / 8],
-			[this.canvas.height / 2, (this.canvas.width / 8) * 7],
-			// Top-left and bottom-right
-			[this.canvas.height / 4, this.canvas.width / 4],
-			[(this.canvas.height / 4) * 3, (this.canvas.width / 4) * 3],
-			// Top-right and bottom-left
+			// Top Right
 			[this.canvas.height / 4, (this.canvas.width / 4) * 3],
+			// Right Center
+			[this.canvas.height / 2, (this.canvas.width / 8) * 7],
+			// Bottom Right
+			[(this.canvas.height / 4) * 3, (this.canvas.width / 4) * 3],
+			// Bottom Center
+			[(this.canvas.height / 8) * 7, this.canvas.width / 2],
+			// Bottom Left
 			[(this.canvas.height / 4) * 3, this.canvas.width / 4],
+			// Left Center
+			[this.canvas.height / 2, this.canvas.width / 8],
+			// Top Left
+			[this.canvas.height / 4, this.canvas.width / 4],
 		];
 		for (let i = 0; i < Object.keys(this.coherenceDifficulties).length; i++) {
 			const div = document.createElement("div");
@@ -370,6 +374,7 @@ export default class Game {
 			this.displayDifficultyText(div, difficulty, i); // Display difficulty text
 			this.container.appendChild(div);
 		}
+		console.log(this.divs.uncompleted);
 	}
 	handleInstructionsBreak(stage, block, data) {
 		if (stage === "game") {
