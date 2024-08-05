@@ -1823,7 +1823,7 @@ wss.on("connection", function (ws) {
 			if (p1SkipReady && p2SkipReady) {
 				state = resetStateonConnection(state);
 				state.RDK.coherence = shuffle(expValues.coherence);
-				skipToBlock("game", "sep");
+				skipToBlock("practice", "sep");
 			}
 		}
 	}
