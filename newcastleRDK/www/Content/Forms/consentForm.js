@@ -1,7 +1,7 @@
 const consentFormHTML = `
 <div class = "consent" style="text-align: center;">
 <div style="text-align: center;">
-    <h2>PROJECT TITLE: <b>Some Title</b></h2>
+    <h2>PROJECT TITLE: <b>Team Scheduling, Decision Making and Behvaiour</b></h2>
     <p>
         <b> Luke Russell </b> Email: LRussell1@uon.edu.au <br>
         <b> Khalid Abdullahi </b> Email: Khalid.Abdullahi@uon.edu.au <br>
