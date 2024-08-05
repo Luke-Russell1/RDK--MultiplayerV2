@@ -86,7 +86,6 @@ export default class Game {
 		];
 		this.img = [];
 		this.preloadImages(this.images, this.img);
-		console.log(this.img);
 		window.addEventListener("resize", () => this.resizeCanvas());
 
 		this.coherenceDifficulties = {
@@ -110,12 +109,10 @@ export default class Game {
 		};
 		this.ws.onmessage = (event) => {
 			let data = JSON.parse(event.data);
-			console.log(data);
 			switch (data.stage) {
 				case "practice":
 					switch (data.type) {
 						case "initialState":
-							document.addEventListener("mousemove", this.recordMousepos);
 							this.state = data.data;
 							this.resetDivs();
 							this.resetCanvas(this.canvas);
@@ -131,7 +128,6 @@ export default class Game {
 							this.state = this.updateState(data.data, data.block);
 							this.createImages(this.img);
 							this.handleDivInteraction(this.divs.uncompleted);
-							console.log(this.img);
 							break;
 						case "load":
 							this.totalRTTimestamp = Date.now();
@@ -196,26 +192,25 @@ export default class Game {
 					}
 					break;
 				case "game":
-					console.log(data);
 					switch (data.type) {
 						case "initialState":
 							this.trialNo = 0;
 							this.state = data.data;
-							this.resetDivs();
-							this.resetCanvas(this.canvas);
 							this.clearContainer();
+							this.canvas = this.resetCanvas(this.canvas);
+							this.ctx = this.canvas.getContext("2d");
+							this.resizeCanvas();
+							this.resetDivs();
 							break;
 						case "startTrial":
 							if (this.breakdiv) {
 								this.breakdiv.remove();
 							}
-							document.addEventListener("mousemove", this.recordMousepos);
 							this.choiceTimestamp = Date.now();
 							this.trialNo += 1;
 							this.state = this.updateState(data.data, data.block);
 							this.createImages(this.img);
 							this.handleDivInteraction(this.divs.uncompleted);
-							console.log(this.img);
 							break;
 						case "load":
 							this.totalRTTimestamp = Date.now();
@@ -284,10 +279,15 @@ export default class Game {
 
 	resetCanvas(canvas) {
 		canvas.remove();
-		this.canvas = document.createElement("canvas");
-		this.ctx = this.canvas.getContext("2d");
-		this.container.appendChild(this.canvas);
-		this.resizeCanvas();
+		let canvas2 = document.createElement("canvas");
+		this.ctx = canvas2.getContext("2d");
+		if (this.container) {
+			this.container.appendChild(canvas2);
+		} else {
+			let container = document.getElementById(this.containerId);
+			container.appendChild(canvas2);
+		}
+		return canvas2;
 	}
 	displayBlockInstructions(stage, block) {
 		this.stage = stage;
@@ -318,7 +318,7 @@ export default class Game {
 		// Use Array.from to safely iterate over the NodeList
 		Array.from(container.childNodes).forEach((child) => {
 			// Check if the child is not a canvas
-			if (child.nodeName != "canvas") {
+			if (child.nodeName != "CANVAS") {
 				// Remove the child from the container
 				container.removeChild(child);
 			}
@@ -488,10 +488,10 @@ export default class Game {
 
 				breakText = `<div align="center">
 				<p> 
-				You have completed ${this.trialNo} of 10 practice trials. Please take a short 20 second break.
+				You have completed ${this.trialNo} of 10 practice trials. Please take a 12 second break.
 				</p>
 				<p>
-				You completed ${data.P1completed} out of 8 tasks
+				You completed ${data.P1completed} out of 8 tasks in 12 seconds.
 				</p>
 				</div>`;
 
@@ -563,7 +563,7 @@ export default class Game {
 					You have completed ${this.trialNo} of 10 practice trials. Please take a 12 second break.
 					</p>
 					<p>
-					You completed ${data.P1completed} tasks and your partner completed ${data.P2completed} tasks out of 8.
+					You completed ${data.P1completed} tasks and your partner completed ${data.P2completed} tasks out of 8 in 12 seconds.
 					</p>
 					</div>`;
 
@@ -597,7 +597,7 @@ export default class Game {
 					You have completed ${this.trialNo} of 10 practice trials. Please take a 6 second break.
 					</p>
 					<p>
-					You completed ${data.P1completed} tasks and your partner completed ${data.P2completed} tasks out of 8.
+					You completed ${data.P1completed} tasks and your partner completed ${data.P2completed} tasks out of 8 in 6 seconds.
 					</p>
 					</div>`;
 
@@ -758,10 +758,8 @@ export default class Game {
 			event.preventDefault();
 
 			if (event.key === "x") {
-				console.log("adding response");
 				let dotRT = this.createTimestamp(this.dotTimestamp);
 				let totalRT = this.createTimestamp(this.totalRTTimestamp);
-				console.log(dotRT, totalRT);
 				this.ws.send(
 					JSON.stringify({
 						stage: this.stage,
@@ -774,10 +772,8 @@ export default class Game {
 					})
 				);
 			} else if (event.key === "z") {
-				console.log("adding response");
 				let dotRT = this.createTimestamp(this.dotTimestamp);
 				let totalRT = this.createTimestamp(this.totalRTTimestamp);
-				console.log(dotRT, totalRT);
 				this.ws.send(
 					JSON.stringify({
 						stage: this.stage,
@@ -795,8 +791,25 @@ export default class Game {
 		// Optional: return the handler function in case you need to remove it later
 		return responseHandler;
 	}
+	recordMousepos(event) {
+		const x = event.clientX;
+		const y = event.clientY;
+		const width = window.innerWidth;
+		const height = window.innerHeight;
+		console.log("adding mouse move");
+		this.ws.send(
+			JSON.stringify({
+				stage: this.stage,
+				block: this.block,
+				type: "mousePos",
+				dimmensions: { width, height },
+				data: { x, y },
+			})
+		);
+	}
 	handleCompletedImages(ID, divObj) {
 		// Check if the ID exists in divObj.uncompleted
+		document.addEventListener("mousemove", this.recordMousepos);
 		document.removeEventListener("keydown", this.responseHandler);
 		let completedDiv = divObj.uncompleted.find((div) => div.id === ID);
 		if (!completedDiv) {
@@ -843,22 +856,6 @@ export default class Game {
 			this.choiceStartTime = performance.now();
 		}
 	}
-	recordMousepos(event) {
-		const x = event.clientX;
-		const y = event.clientY;
-		const width = window.innerWidth;
-		const height = window.innerHeight;
-		console.log("recording mouse pos", x, y);
-		this.ws.send(
-			JSON.stringify({
-				stage: this.stage,
-				block: this.block,
-				type: "mousePos",
-				dimmensions: { width, height },
-				data: { x, y },
-			})
-		);
-	}
 	displayDifficultyText(parentDiv, difficulty, id) {
 		const difficultyText = document.createElement("div");
 		difficultyText.textContent = difficulty;
@@ -878,6 +875,7 @@ export default class Game {
 	}
 
 	handleDivInteraction(divList) {
+		document.addEventListener("mousemove", this.recordMousepos);
 		for (let div of divList) {
 			div.addEventListener("mouseover", this.mouseOverHandler);
 			div.addEventListener("mouseout", this.mouseOutHandler);
@@ -1071,6 +1069,7 @@ export default class Game {
 		const selectedDiv = divlist.find((div) => div.id === divID);
 		if (!selectedDiv) {
 			console.error("Div not found");
+			this.restoreCompletedImages(this.divs);
 			return;
 		}
 		const divImage = selectedDiv.querySelector("img");

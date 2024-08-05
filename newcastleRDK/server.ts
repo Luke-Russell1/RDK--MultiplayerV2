@@ -6,34 +6,6 @@ import fs, { write } from "node:fs";
 import { Server as WSServer } from "ws";
 import { WebSocket } from "ws";
 
-/** 
-[X] Add a way to handle the end of the game
-[X] Add a way to handle the end of the practice trials
-[X] Make it so that i can skip to a certain block if needed 
-[X] Make is so that the game records completion time in each block
-[X] Make it so that the trials finish when all RDK's are completed
-[X] Add switching between blocks (maybe run trials for half total, which triggers block break and then switches?)
-[x] Change practice trials so that they operate in a way that is similar to the main trials (like the block system)
-[X] Add feedback at the end of a trial
-[X] Increase the length of practice trials
-[X] CHange the way state works to have STATE and player state
-[X] Make the state record both reaction time, but total time to get the correct decision. 
-[X] Fix choice time
-[X] Change the way practice trials run so that they gradually become more difficult
-[ ] Make sure all the break text matches
-[ ] Add message in breaktext to remind them of how long each trial is
-[X] Change data recording to add directions and attmpt rt
-[X] Change information statement to be better
-[X] Write r script to analyse data
-[X] Make sure data is recorded correctly
-[X] Add recording of participant information
-[X] Add mouse recording 
-[X] Make a reset function on disconnect
-[X] Finish checking data writing
-[ ] Write file on end of game
-[ ] Make sure to clean up the code and remove any unnecessary comments/unused variables. 
-
-*/
 const app = express();
 const port = 3000;
 
@@ -122,10 +94,10 @@ const expValues = {
 	dataPath: "data/",
 	blockLength: 20,
 	practiceTrials: 10,
-	practiceLength1: 4,
-	practiceLength2: 4,
-	practiceBreak1: 4,
-	practiceBreak2: 4,
+	practiceLength1: 12,
+	practiceLength2: 6,
+	practiceBreak1: 12,
+	practiceBreak2: 6,
 };
 /*
 REMEBER TO REMOVE OR CHANGE THIS
@@ -258,6 +230,9 @@ function splitIntoSubarrays(arr: Array<string>, subarrayLength: number) {
 	return result;
 }
 function chooseBlock(exp: string) {
+	/*
+	Chooses the blocks for both practice and exp trials. This is called once and then the block is used for the rest of the trials.
+	*/
 	if (exp === "exp") {
 		let blockArray = ["sep", "collab"];
 		let block = randomChoice(blockArray);
@@ -268,7 +243,6 @@ function chooseBlock(exp: string) {
 		if (block === "collab") {
 			blocks = ["collab", "sep"];
 		}
-		console.log(blocks);
 		return blocks;
 	}
 	if (exp === "collab") {
@@ -295,6 +269,14 @@ function shuffle(arr: Array<any>) {
 	}
 	return arr;
 }
+function removeConnection(player: "player1" | "player2") {
+	if (player === "player1") {
+		connections.player1 = null;
+	}
+	if (player === "player2") {
+		connections.player2 = null;
+	}
+}
 function chooseNewDirection(
 	state: State,
 	playerID: "player1" | "player2",
@@ -302,6 +284,12 @@ function chooseNewDirection(
 	stage: string,
 	block: string
 ) {
+	/*
+	Chooses a new direction for the RDK when the player makes an incorrect choice. 
+	It updates the state and sends the new direction to the player. In the collab condiiton 
+	it will send the new direction and updated state to both players. 
+	It randomly chooses the direction between "left" and "right"
+	*/
 	switch (block) {
 		case "collab":
 			if (playerID === "player1") {
@@ -372,6 +360,10 @@ function sendState(
 	stage: string,
 	block: string
 ) {
+	/*
+	Sends the state to both players. On the client side both players are P1, so if the ws matches P1 it will send the state to the player.
+	If it matches P2 it will switch the state to so P2 appears as P1 and then sends that transformed state. 
+	*/
 	if (playerID === "player1") {
 		connections.player1?.send(
 			JSON.stringify({ stage: stage, block: block, type: "state", data: state })
@@ -398,6 +390,10 @@ function beginGame(
 	stage: string,
 	block: string
 ) {
+	/*
+	Initialises the game. It sets the directions for the RDK and sends the state to the players. 
+	The directions are all preloaded, and selected based on the current trial number. 
+	*/
 	switch (stage) {
 		case "game":
 			switch (block) {
@@ -477,6 +473,10 @@ function updatePlayerMouseState(
 	dimensions: { width: number; height: number },
 	data: { x: number; y: number }
 ) {
+	/*
+	Updates the mouse position for the player. It records the trial number, the x and y position of the mouse, the stage and block, and the timestamp. 
+	This deep copies the base mousePos state, and then writes it to the mouseData array whenever called. 
+	*/
 	const newMousePos = {
 		player1: { ...mousePos.player1 },
 		p1Screen: { ...mousePos.p1Screen },
@@ -510,6 +510,9 @@ function updatePlayerMouseState(
 }
 
 function writeMouse(data: any) {
+	/*
+	Function for writing the mouse data to a file. File name will include the game number.
+	*/
 	try {
 		// Convert the data object to a JSON string
 		const dataString = JSON.stringify(data, null, 2); // Indent JSON for readability
@@ -526,6 +529,9 @@ function writeMouse(data: any) {
 	}
 }
 function writeData(data: any) {
+	/*
+		Function for writing the trial data to a file. File name will include the game number.
+	*/
 	try {
 		// Convert the data object to a JSON string
 		const dataString = JSON.stringify(data, null, 2); // Indent JSON for readability
@@ -536,8 +542,6 @@ function writeData(data: any) {
 
 		// Write the JSON string to a file
 		fs.writeFileSync(path, dataString, "utf8");
-
-		console.log(`Data successfully written to ${path}`);
 	} catch (error) {
 		// Handle errors (e.g., file system errors)
 		console.error(`Failed to write data to ${expValues.dataPath}:`, error);
@@ -545,6 +549,11 @@ function writeData(data: any) {
 }
 
 function createTrials(state: State, blockType: string) {
+	/*
+	This creates the trials for the experiments, assigning directions for each 
+	coherence value for each trial. This is pushes to trialsDirectionArray
+	which is then split into subarrays for each coherence value
+	*/
 	if (blockType === "exp") {
 		let trials = expValues.trials;
 		let choices = expValues.directions;
@@ -600,6 +609,9 @@ function handleRDKSelection(
 	stage: string,
 	block: string
 ) {
+	/*
+	more or less handles selection of the RDK. It updates the state with the choice, the time of the choice, and the timestamp.
+	*/
 	switch (block) {
 		case "collab":
 			hasBeenSelected(state, data);
@@ -668,7 +680,8 @@ function updateCollabStateOnResponse(
 	totalRt: number
 ) {
 	/*
-	Uncertain if this might make state synchronisation issues??
+	This is used to update the state of the RDK type when the player makes a response. if it is correct a bunch of things are updated, 
+	if incorrect it is mostly attempts, reaction time and the incorrect direction. This is used in the CHECKRESPONSE function.
 	*/
 
 	if (correct == true) {
@@ -694,7 +707,6 @@ function updateCollabStateOnResponse(
 			state.RDK.player[id] = 2;
 		}
 	} else if (correct == false) {
-		console.log("incorrect");
 		if (player === "player1") {
 			state.P1RDK.attempts[id] += 1;
 			state.P1RDK.reactionTime[id].push(rt);
@@ -717,6 +729,11 @@ function checkResponse(
 	stage: string,
 	block: string
 ) {
+	/*
+	This function checks the response of the player. If the player has already made a response, it will not do anything. If the response does not match the most recently selected one,
+	it also does nothing (this solves a bug i was having). If the response is correct, it updates the state and sends the new state to the players.
+	The sep condition has everything update here as opposed to it's own function. 
+	*/
 	switch (block) {
 		case "collab":
 			if (player === "player1") {
@@ -755,7 +772,6 @@ function checkResponse(
 				}
 			} else if (player === "player2") {
 				if (state.P2RDK.mostRecentChoice !== id) {
-					console.log("Player 2 has already responded");
 				} else {
 					if (state.RDK.direction[id] === data) {
 						updateCollabStateOnResponse(
@@ -793,7 +809,6 @@ function checkResponse(
 		case "sep":
 			if (player === "player1") {
 				if (state.P1RDK.mostRecentChoice !== id) {
-					console.log("Player 1 has already responded");
 				} else {
 					if (state.P1RDK.direction[id] === data) {
 						state.P1RDK.totalReactionTIme[id] = totalRt;
@@ -819,7 +834,6 @@ function checkResponse(
 			}
 			if (player === "player2") {
 				if (state.P2RDK.mostRecentChoice !== id) {
-					console.log("Player 2 has already responded");
 				} else {
 					if (state.P2RDK.direction[id] === data) {
 						state.P2RDK.totalReactionTIme[id] = totalRt;
@@ -874,6 +888,9 @@ function resetMouseState(data: mouseTracking) {
 }
 
 function resetState(state: State, baseRDK: rdk, newBlock: boolean) {
+	/*
+	Used to reset the state between trials and blocks.
+	*/
 	if (newBlock === true) {
 		let newState = Object.assign({}, state);
 		newState.RDK = deepCopy(baseRDK);
@@ -957,6 +974,10 @@ function checkBlockCompleted(
 	block: string,
 	blocks: Array<string>
 ) {
+	/*
+	Checks if the block is completed. If it is, it will send the endBlock message to the players. This is called during the trial handling functions, 
+	where if false they continue, but if true they exit and send the appropriate message. 
+	*/
 	if (block === blocks[0]) {
 		if (state.trialNo === expValues.blockLength) {
 			connections.player1?.send(
@@ -975,7 +996,6 @@ function checkBlockCompleted(
 					data: "endBlock",
 				})
 			);
-			writeData(dataArray);
 			return true;
 		} else {
 			return false;
@@ -983,7 +1003,6 @@ function checkBlockCompleted(
 	}
 	if (block === blocks[1]) {
 		if (state.trialNo === expValues.blockLength) {
-			console.log("end of block");
 			connections.player1?.send(
 				JSON.stringify({
 					stage: "game",
@@ -1007,6 +1026,9 @@ function checkBlockCompleted(
 	}
 }
 function calculateBreakInfo(state: State, player: "player1" | "player2") {
+	/*
+	Calculates info to display on the break screen, switching it to show the correct info for each player. 
+	*/
 	let P1counts = 0;
 	let P2counts = 0;
 
@@ -1030,6 +1052,10 @@ function calculateBreakInfo(state: State, player: "player1" | "player2") {
 }
 
 function startTrials(block: string) {
+	/*
+	Timestamp is used to calculate the time different messages arrive compared to the beginning of the trial. 
+	creates a timeout to track time for each trial, and calls the startBreak function when the trial is over.
+	*/
 	timeStamp = Date.now();
 	connections.player1?.send(
 		JSON.stringify({
@@ -1060,6 +1086,10 @@ function startTrials(block: string) {
 }
 
 function startBreak(block: string) {
+	/*
+	Saves trial data and increments the trial number. If the block is not completed, it will calculate the break info and send it to the players.
+	Calls start trial assumming checkBlock doesn't return true.
+	*/
 	saveTrialData(state);
 	state.trialNo += 1;
 	if (!checkBlockCompleted(state, block, blocks)) {
@@ -1096,6 +1126,9 @@ function startBreak(block: string) {
 }
 
 function handlePracticeTrials(directions: Array<Array<string>>, block: string) {
+	/*
+	Same as startTrials but for the practice trials.
+	*/
 	state = resetState(state, baseRDK, false);
 	timeStamp = Date.now();
 	state.P1RDK.direction = directions[state.trialNo];
@@ -1119,18 +1152,19 @@ function handlePracticeTrials(directions: Array<Array<string>>, block: string) {
 	);
 	if (state.trialNo < 7) {
 		trialTimeout = setTimeout(() => {
-			writeMouse(mouseArray);
 			startPracticeBreak(block);
 		}, expValues.practiceLength1 * 1000);
 	} else {
 		trialTimeout = setTimeout(() => {
 			startPracticeBreak(block);
-			writeMouse(mouseArray);
 		}, expValues.practiceLength2 * 1000);
 	}
 }
 
 function startPracticeBreak(block: string) {
+	/*
+	Same as startBreak but for the practice trials.
+	*/
 	saveTrialData(state);
 
 	state.trialNo += 1; // Increment trial number here
@@ -1176,7 +1210,6 @@ function startPracticeBreak(block: string) {
 		connections.player2?.send(
 			JSON.stringify({ stage: "practice", type: "blockBreak", data: state })
 		);
-		writeData(dataArray);
 	} else if (block === "collab" && state.trialNo === 10) {
 		connections.player1?.send(
 			JSON.stringify({
@@ -1196,6 +1229,10 @@ function startPracticeBreak(block: string) {
 }
 
 function skipToBlock(stage: string, block: string) {
+	/*
+	Helper function to skip to a block. This is used in the introduction messaging to skip to the practice trials, or to the game section. 
+	IF wanting to start practice use "practice" as the stage, and either "sep" as the block. If wanting either sep or collab, use "game" as the stage.
+	*/
 	if (stage === "game") {
 		if (block === "sep") {
 			state.stage = "game";
@@ -1289,7 +1326,6 @@ function handleIntroductionMessaging(
 ) {
 	switch (type) {
 		case "consent":
-			console.log("intro", data);
 			if (ws === connections.player1) {
 				state.player1.consent = true;
 				state.player1.age = Number(data.age);
@@ -1307,7 +1343,6 @@ function handleIntroductionMessaging(
 			}
 			break;
 		case "completedInstructions":
-			console.log("intro", data);
 			if (connections.player1 === ws) {
 				P1InstructionsFinished = true;
 			}
@@ -1328,7 +1363,6 @@ function handleIntroductionMessaging(
 	}
 }
 function practiceSepMessaging(data: any, ws: WebSocket, connections: any) {
-	console.log(data);
 	switch (data.type) {
 		case "instructionsComplete":
 			if (connections.player1 === ws) {
@@ -1431,7 +1465,6 @@ function practiceSepMessaging(data: any, ws: WebSocket, connections: any) {
 	}
 }
 function practiceCollabMessaging(data: any, ws: WebSocket, connections: any) {
-	console.log(data);
 	switch (data.type) {
 		case "gameReady":
 			if (connections.player1 === ws) {
@@ -1547,7 +1580,6 @@ function practiceCollabMessaging(data: any, ws: WebSocket, connections: any) {
 	}
 }
 function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
-	console.log("collab", data);
 	switch (data.type) {
 		case "instructionsComplete":
 			if (connections.player1 === ws) {
@@ -1647,7 +1679,6 @@ function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
 	}
 }
 function gameSepMessaging(data: any, ws: WebSocket, connections: any) {
-	console.log("sep", data);
 	switch (data.type) {
 		case "instructionsComplete":
 			if (connections.player1 === ws) {
@@ -1751,14 +1782,14 @@ function gameSepMessaging(data: any, ws: WebSocket, connections: any) {
 wss.on("connection", function (ws) {
 	if (connections.player1 === null) {
 		connections.player1 = ws;
-		console.log("Player 1 connected");
 		state.stage = "waitingRoom";
 		connections.player1.send(JSON.stringify({ stage: "waitingRoom" }));
+		handleNewPlayers("player1");
 		p1Ready = true;
 	} else if (connections.player2 === null) {
 		state.stage = "waitingRoom";
 		connections.player2 = ws;
-		console.log("Player 2 connected");
+		handleNewPlayers("player2");
 		connections.player2.send(JSON.stringify({ stage: "waitingRoom" }));
 		p2Ready = true;
 	} else {
@@ -1792,14 +1823,14 @@ wss.on("connection", function (ws) {
 			if (p1SkipReady && p2SkipReady) {
 				state = resetStateonConnection(state);
 				state.RDK.coherence = shuffle(expValues.coherence);
-				skipToBlock("practice", "sep");
+				skipToBlock("game", "sep");
 			}
 		}
 	}
 
 	ws.on("message", function message(m) {
 		const data = JSON.parse(m.toString("utf-8"));
-		console.log(data);
+		console.log(data.stage, data.block);
 		switch (data.stage) {
 			case "intro":
 				handleIntroductionMessaging(data.type, ws, connections, data.data);
@@ -1829,8 +1860,9 @@ wss.on("connection", function (ws) {
 
 	ws.on("close", () => {
 		writeData(dataArray);
-		if (connections.player1 === ws) connections.player1 = null;
-		else if (connections.player2 === ws) connections.player2 = null;
+		writeMouse(mouseArray);
+		if (connections.player1 === ws) removeConnection("player1");
+		else if (connections.player2 === ws) removeConnection("player2");
 	});
 
 	ws.on("error", console.error);
