@@ -1269,7 +1269,6 @@ function startPracticeBreak(block: string) {
 				data: blocks[0],
 			})
 		);
-		writeData(dataArray);
 	}
 }
 
