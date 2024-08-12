@@ -12,6 +12,11 @@ import path from "path";
 [X] change WS management to remove an redirct
 [X] Write data when they land on the final page
 [X] add forced timeout
+
+PATH TO EXP:
+lukeserver.duckdns.org/lukeserver/
+PATH TO DATA:
+lukeserver.duckdns.org/lukeserver/files/
 */
 const app = express();
 const port = 3000;
