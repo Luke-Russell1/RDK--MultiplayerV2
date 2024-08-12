@@ -24,7 +24,6 @@ Please read the following statements before proceeding.
 <p>2. I understand that this project is for research purposes only and not for treatment.</p>
 <p>3. In this project, I will be required to complete a computer-based task. The details of this have been explained in the Participant Information Statement which I can request to be emailed to by emailing the Principal Researcher.</p>
 <p>4. My participation is voluntary, and I am free to withdraw from the project at any time without explanation or prejudice and to withdraw any unprocessed data I have provided. </p>
-<p>5. I agree to have the findings of this study emailed to me.</p>
 <p> 
 
 <input type="checkbox" id="consent_checkbox" />
