@@ -103,7 +103,7 @@ const expValues = {
 REMEBER TO REMOVE OR CHANGE THIS
 */
 const testConsts = {
-	skipIntro: true,
+	skipIntro: false,
 };
 /*
 Base RDK is used to reset the state between trials and blocks. 
@@ -176,7 +176,8 @@ let p2collabInstruction = false;
 /*
 functions start below here
 */
-function saveTrialData(state: State) {
+function saveTrialData(state: State, block: string) {
+	state.block = block;
 	dataArray.push(state);
 }
 function assignID() {
@@ -1056,7 +1057,7 @@ function calculateBreakInfo(state: State, player: "player1" | "player2") {
 function startTrials(block: string) {
 	/*
 	Timestamp is used to calculate the time different messages arrive compared to the beginning of the trial. 
-	creates a timeout to track time for each trial, and calls the startBreak function when the trial is over.
+	creates a timeout to track time for each trial, and calls the startBreak function whestaten the trial is over.
 	*/
 	timeStamp = Date.now();
 	connections.player1?.send(
@@ -1092,7 +1093,7 @@ function startBreak(block: string) {
 	Saves trial data and increments the trial number. If the block is not completed, it will calculate the break info and send it to the players.
 	Calls start trial assumming checkBlock doesn't return true.
 	*/
-	saveTrialData(state);
+	saveTrialData(state, block);
 	state.trialNo += 1;
 	if (!checkBlockCompleted(state, block, blocks)) {
 		let p1BreakInfo = calculateBreakInfo(state, "player1");
@@ -1167,7 +1168,7 @@ function startPracticeBreak(block: string) {
 	/*
 	Same as startBreak but for the practice trials.
 	*/
-	saveTrialData(state);
+	saveTrialData(state, block);
 
 	state.trialNo += 1; // Increment trial number here
 	if (

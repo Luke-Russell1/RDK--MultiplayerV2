@@ -9,7 +9,7 @@ const consentFormHTML = `
     </p>
     <p>
         <b> For further information about this project, please direct questions to either Luke Russell or Khalid Abdullahi. <br>
-        This research is permitted by the University of Newcastle under Human Research Ethics Protocol  </b>
+        This research is permitted by the University of Newcastle under Human Research Ethics Protocol H-2017-0192</b>
     </p>
 </div>
 <div  align="left">
