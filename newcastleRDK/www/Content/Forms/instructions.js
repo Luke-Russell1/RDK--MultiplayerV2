@@ -224,14 +224,30 @@ different for those operating by themselves versus with a partner? These are the
 If you would like more information or have any questions, please contact Luke Russell at: 
  LRussell1@uon.edu.au </p>
 <p> Thank you for your time and participation </p>
-<p> You can now close this window </p>`;
+<p> Please press enter to complete the experiment and return to Prolific </p>
+</div>`;
+
+let endGameHandler = null;
 function loadEndGame(targetElementId) {
 	const targetElement = document.getElementById(targetElementId);
 	if (targetElement) {
 		targetElement.innerHTML = endGameHTML;
+		if (endGameHandler) {
+			document.removeEventListener("keydown", endGameHandler);
+		}
+		endGameHandler = function (event) {
+			if (event.key === "Enter") {
+				handleRedirect();
+			}
+		};
+		document.addEventListener("keydown", endGameHandler);
 	} else {
 		console.error(`Target element with ID '${targetElementId}' not found.`);
 	}
+}
+function handleRedirect(ws) {
+	window.location.replace("https://www.prolific.com/");
+	ws.send(JSON.stringify({ stage: "end" }));
 }
 export {
 	loadInstructions,

@@ -154,7 +154,6 @@ export default class Game {
 							this.restoreImages(this.divs);
 							break;
 						case "newDirection":
-							this.dotTimestamp = Date.now();
 							this.drawNewDirection(
 								data.index,
 								this.divs.uncompleted,
@@ -920,6 +919,7 @@ export default class Game {
 		this.responseHandler = null;
 
 		setTimeout(() => {
+			this.dotTimestamp = Date.now();
 			this.generateDotMotionAperture(Index, divlist, expConsts, direction);
 			this.responseHandler = this.addResponseHandler(Index);
 		}, expConsts.pauseDuration);

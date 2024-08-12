@@ -5,11 +5,56 @@ import { create } from "node:domain";
 import fs, { write } from "node:fs";
 import { Server as WSServer } from "ws";
 import { WebSocket } from "ws";
+import path from "path";
 
+/*
+[X] Change server routing to redirect on end of exp
+[X] change WS management to remove an redirct
+[X] Write data when they land on the final page
+[X] add forced timeout
+*/
 const app = express();
 const port = 3000;
 
 app.use(express.static("www"));
+
+// Serve files for download from the "data" directory
+app.use("/data", express.static("data"));
+
+// Route to list all files in the "data" directory
+app.get("/files", (req, res) => {
+	const directoryPath = path.join(__dirname, "data");
+
+	fs.readdir(directoryPath, (err, files) => {
+		if (err) {
+			return res.status(500).send("Unable to scan directory: " + err);
+		}
+
+		let fileList = "<h1>Available Files for Download</h1><ul>";
+
+		files.forEach((file) => {
+			const filePath = path.join(directoryPath, file);
+
+			fs.stat(filePath, (err, stats) => {
+				if (err) {
+					return res.status(500).send("Unable to get file stats: " + err);
+				}
+
+				// Format the modification date
+				const modificationDate = new Date(stats.mtime).toLocaleDateString();
+
+				// Append file with its modification date to the list
+				fileList += `<li><a href="/data/${file}" download>${file}</a> (added: ${modificationDate})</li>`;
+
+				// Send the response only after all files are processed
+				if (files.indexOf(file) === files.length - 1) {
+					fileList += "</ul>";
+					res.send(fileList);
+				}
+			});
+		});
+	});
+});
 
 const server = app.listen(port, () => {
 	console.log("Server started on http://localhost:" + port);
@@ -73,7 +118,7 @@ type rdk = {
 	coherence: Array<number>;
 	direction: Array<any>;
 	incorrectDirection: Array<Array<string>>;
-	completionTime: Array<number>;
+	completionTime: number;
 	reactionTime: Array<Array<number>>;
 	timeStamp: Array<number>;
 };
@@ -120,7 +165,7 @@ const baseRDK: rdk = {
 	coherence: expValues.coherence,
 	direction: [],
 	incorrectDirection: [[], [], [], [], [], [], [], []],
-	completionTime: [],
+	completionTime: 0,
 	reactionTime: [[], [], [], [], [], [], [], []],
 	totalReactionTIme: [0, 0, 0, 0, 0, 0, 0, 0],
 	timeStamp: [0, 0, 0, 0, 0, 0, 0, 0],
@@ -804,6 +849,7 @@ function checkResponse(
 							rt,
 							totalRt
 						);
+
 						chooseNewDirection(state, "player2", id, stage, block);
 					}
 				}
@@ -943,32 +989,12 @@ function endTrialEarly(
 	block: string,
 	player: "player1" | "player2" | null
 ) {
-	if (checkCompleted(state, block, player)) {
-		if (block === "sep") {
-			if (player === "player1") {
-				connections.player1?.send(
-					JSON.stringify({
-						stage: "game",
-						block: block,
-						type: "endTrialEarly",
-						data: state,
-					})
-				);
+	if (checkCompleted(state, block, player) === true) {
+		if (block === "collab") {
+			if (trialTimeout !== null) {
+				clearTimeout(trialTimeout);
+				startBreak(block);
 			}
-		} else if (player === "player2") {
-			connections.player2?.send(
-				JSON.stringify({
-					stage: "game",
-					block: block,
-					type: "endTrialEarly",
-					data: state,
-				})
-			);
-		}
-	} else if (block === "collab") {
-		if (trialTimeout !== null) {
-			clearTimeout(trialTimeout);
-			startBreak(block);
 		}
 	}
 }
@@ -1006,6 +1032,9 @@ function checkBlockCompleted(
 	}
 	if (block === blocks[1]) {
 		if (state.trialNo === expValues.blockLength) {
+			writeData(dataArray);
+			writeMouse(mouseArray);
+
 			connections.player1?.send(
 				JSON.stringify({
 					stage: "game",
@@ -1093,6 +1122,9 @@ function startBreak(block: string) {
 	Saves trial data and increments the trial number. If the block is not completed, it will calculate the break info and send it to the players.
 	Calls start trial assumming checkBlock doesn't return true.
 	*/
+	state.RDK.completionTime = createTimestamp(Date.now());
+	state.P1RDK.completionTime = createTimestamp(Date.now());
+	state.P2RDK.completionTime = createTimestamp(Date.now());
 	saveTrialData(state, block);
 	state.trialNo += 1;
 	if (!checkBlockCompleted(state, block, blocks)) {
@@ -1663,7 +1695,7 @@ function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
 					data.stage,
 					data.block
 				);
-				checkCompleted(state, data.block, null);
+				endTrialEarly(state, data.block, "player1");
 			}
 			if (ws === connections.player2) {
 				checkResponse(
@@ -1676,7 +1708,7 @@ function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
 					data.stage,
 					data.block
 				);
-				checkCompleted(state, data.block, null);
+				endTrialEarly(state, data.block, "player2");
 			}
 			break;
 	}
@@ -1833,7 +1865,6 @@ wss.on("connection", function (ws) {
 
 	ws.on("message", function message(m) {
 		const data = JSON.parse(m.toString("utf-8"));
-		console.log(data.stage, data.block);
 		switch (data.stage) {
 			case "intro":
 				handleIntroductionMessaging(data.type, ws, connections, data.data);
@@ -1858,12 +1889,16 @@ wss.on("connection", function (ws) {
 						break;
 				}
 				break;
+			case "end":
+				if (connections.player1 === ws) {
+					connections.player1 = null;
+				} else if (connections.player2 === ws) {
+					connections.player2 = null;
+				}
 		}
 	});
 
 	ws.on("close", () => {
-		writeData(dataArray);
-		writeMouse(mouseArray);
 		if (connections.player1 === ws) removeConnection("player1");
 		else if (connections.player2 === ws) removeConnection("player2");
 	});

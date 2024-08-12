@@ -4,12 +4,10 @@ import { loadInstructions } from "../Content/Forms/instructions.js";
 import Game from "./Game.js";
 
 document.addEventListener("DOMContentLoaded", () => {
-	const wsURL = `ws://${ window.location.host }${ window.location.pathname }coms`;
+	const wsURL = `ws://${window.location.host}${window.location.pathname}coms`;
 	const ws = new WebSocket(wsURL);
 	console.log("Connecting to the server...");
-
-	let game = null; // Reference to the Game instance
-
+	let game = null;
 	const defaultWsOnMessage = (event) => {
 		let message = JSON.parse(event.data);
 		console.log(message);
