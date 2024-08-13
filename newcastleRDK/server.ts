@@ -154,7 +154,7 @@ const expValues = {
 REMEBER TO REMOVE OR CHANGE THIS
 */
 const testConsts = {
-	skipIntro: true,
+	skipIntro: false,
 };
 /*
 Base RDK is used to reset the state between trials and blocks. 
