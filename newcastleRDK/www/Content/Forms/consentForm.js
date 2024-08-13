@@ -38,7 +38,7 @@ Please read the following statements before proceeding.
 const participantInfoHTML = `
  <div class = "participantInfo" align = "center"> 
 		<h2>Participant Information</h2>
-        <p> Please provide your age and the gender you identify as before proceeding. </p>
+        <p> Please provide your age, gender and platform before proceeding. Please consider your response carefully </p>
         <form id="participantForm">
             <label for="age">Age:</label>    
             <input type="number" id="age" placeholder="Age" required/> <br>    
@@ -49,6 +49,11 @@ const participantInfoHTML = `
                 <option value="Female">Female</option>
                 <option value="Other">Other</option>
             </select> <br>
+			<label for = "platform"> Platform: </label>
+			<select name = "platform" id = "platform">
+				<option value = "" selected disabled hidden> Choose here </option>
+				<option value = "SONA"> SONA </option>
+				<option value = "Prolific"> Prolific </option>
             </p>
             <button type="submit" class = "submit">Submit</button>
         </form>
@@ -91,6 +96,7 @@ function displayInfoHTML(targetElementId, ws) {
 	if (targetElement) {
 		const ageInput = document.getElementById("age");
 		const genderSelect = document.getElementById("gender");
+		const plaform = document.getElementById("platform");
 		const submitButton = document.querySelector(
 			"#participantForm button[type='submit']"
 		);
@@ -98,19 +104,29 @@ function displayInfoHTML(targetElementId, ws) {
 		const validateFields = () => {
 			const isAgeValid = ageInput && ageInput.value.trim() !== "";
 			const isGenderSelected = genderSelect && genderSelect.value.trim() !== "";
-			submitButton.disabled = !(isAgeValid && isGenderSelected);
+			const isPlatformSelected = platform && platform.value.trim() !== "";
+			submitButton.disabled = !(
+				isAgeValid &&
+				isGenderSelected &&
+				isPlatformSelected
+			);
 		};
-
 		ageInput.addEventListener("input", validateFields);
 		genderSelect.addEventListener("change", validateFields);
+		platform.addEventListener("change", validateFields);
 
 		submitButton.addEventListener("click", (event) => {
 			event.preventDefault(); // Prevent the default form submission
 
-			if (ageInput.value.trim() !== "" && genderSelect.value.trim() !== "") {
+			if (
+				ageInput.value.trim() !== "" &&
+				genderSelect.value.trim() !== "" &&
+				platform.value.trim() !== ""
+			) {
 				data = {
 					age: ageInput.value,
 					gender: genderSelect.value,
+					platform: platform.value,
 				};
 				console.log(data);
 				handleStartExperiment(ws, data);

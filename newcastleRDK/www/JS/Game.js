@@ -264,7 +264,16 @@ export default class Game {
 							break;
 						case "endBlock":
 							document.removeEventListener("mousemove", this.recordMousepos);
-							this.handleInstructionsBreak(data.stage, data.block, data.data);
+							if (data.plaform) {
+								this.handleInstructionsBreak(
+									data.stage,
+									data.block,
+									data.data,
+									data.platform
+								);
+							} else {
+								this.handleInstructionsBreak(data.stage, data.block, data.data);
+							}
 							break;
 					}
 			}
@@ -376,7 +385,7 @@ export default class Game {
 			this.container.appendChild(div);
 		}
 	}
-	handleInstructionsBreak(stage, block, data) {
+	handleInstructionsBreak(stage, block, data, platform) {
 		if (stage === "game") {
 			switch (data) {
 				case "endBlock":
@@ -409,7 +418,7 @@ export default class Game {
 					}
 					break;
 				case "endExp":
-					loadEndGame("main", this.ws);
+					loadEndGame("main", this.ws, platform);
 					break;
 			}
 		}

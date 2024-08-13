@@ -228,11 +228,11 @@ different for those operating by themselves versus with a partner? These are the
 If you would like more information or have any questions, please contact Luke Russell at: 
  LRussell1@uon.edu.au </p>
 <p> Thank you for your time and participation </p>
-<p> Please press enter to complete the experiment and return to Prolific </p>
+<p> Please press enter to complete the experiment and return to either Prolific or SONA</p>
 </div>`;
 
 let endGameHandler = null;
-function loadEndGame(targetElementId, ws) {
+function loadEndGame(targetElementId, ws, platform) {
 	const targetElement = document.getElementById(targetElementId);
 	if (targetElement) {
 		targetElement.innerHTML = endGameHTML;
@@ -249,9 +249,16 @@ function loadEndGame(targetElementId, ws) {
 		console.error(`Target element with ID '${targetElementId}' not found.`);
 	}
 }
-function handleRedirect(ws) {
-	window.location.replace("https://www.prolific.com/");
-	ws.send(JSON.stringify({ stage: "end" }));
+function handleRedirect(ws, platform) {
+	if (platform === "prolific") {
+		window.location.replace(
+			"https://app.prolific.com/submissions/complete?cc=CHVSXHS4"
+		);
+		ws.send(JSON.stringify({ stage: "end" }));
+	} else {
+		window.location.replace("https://www.newcastle.edu.au/");
+		ws.send(JSON.stringify({ stage: "end" }));
+	}
 }
 export {
 	loadInstructions,

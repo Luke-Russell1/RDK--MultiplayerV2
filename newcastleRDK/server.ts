@@ -79,6 +79,7 @@ type Player = {
 	age: number;
 	gender: string;
 	consent: boolean;
+	platform: string;
 };
 type mousePos = {
 	trialNo: number;
@@ -140,7 +141,7 @@ const expValues = {
 	coherence: [0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9],
 	directions: ["left", "right"],
 	block: ["sep", "collab"],
-	breakLength: 2,
+	breakLength: 6,
 	dataPath: "data/",
 	blockLength: 30,
 	practiceTrials: 10,
@@ -184,12 +185,14 @@ let state: State = {
 		age: 0,
 		gender: "",
 		consent: false,
+		platform: "",
 	},
 	player2: {
 		id: 0,
 		age: 0,
 		gender: "",
 		consent: false,
+		platform: "",
 	},
 	trialNo: 0,
 	RDK: deepCopy(baseRDK),
@@ -1050,6 +1053,7 @@ function checkBlockCompleted(
 					block: block,
 					type: "endBlock",
 					data: "endExp",
+					platform: state.player1.platform,
 				})
 			);
 			connections.player2?.send(
@@ -1058,6 +1062,7 @@ function checkBlockCompleted(
 					block: block,
 					type: "endBlock",
 					data: "endExp",
+					platform: state.player2.platform,
 				})
 			);
 			return true;
@@ -1374,6 +1379,7 @@ function handleIntroductionMessaging(
 				state.player1.consent = true;
 				state.player1.age = Number(data.age);
 				state.player1.gender = data.gender;
+				state.player1.platform = data.platform;
 				connections.player1.send(
 					JSON.stringify({ stage: "intro", type: "instructions" })
 				);
@@ -1381,6 +1387,7 @@ function handleIntroductionMessaging(
 				state.player2.consent = true;
 				state.player2.age = Number(data.age);
 				state.player2.gender = data.gender;
+				state.player2.platform = data.platform;
 				connections.player2.send(
 					JSON.stringify({ stage: "intro", type: "instructions" })
 				);
