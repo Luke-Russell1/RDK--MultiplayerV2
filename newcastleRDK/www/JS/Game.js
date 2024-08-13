@@ -66,6 +66,7 @@ export default class Game {
 		this.choiceTimestamp = Date.now();
 		this.rtTimestamp = Date.now();
 		this.totalRTTimestamp = Date.now();
+		this.newDirectionTimeout = null;
 
 		/*
         Below controls the images that are displayed on the canvas.

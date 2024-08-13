@@ -54,6 +54,7 @@ const participantInfoHTML = `
 				<option value = "" selected disabled hidden> Choose here </option>
 				<option value = "SONA"> SONA </option>
 				<option value = "Prolific"> Prolific </option>
+				</select> <br>
             </p>
             <button type="submit" class = "submit">Submit</button>
         </form>
