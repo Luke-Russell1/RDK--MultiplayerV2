@@ -60,7 +60,7 @@ export default class Game {
 		// Reaction time vars below
 		this.breakInfo = {
 			p1Completed: 0,
-			p2Completed: 0,
+			bp2Completed: 0,
 			completed: 0,
 		};
 		this.trialNo = 0;
@@ -173,8 +173,8 @@ export default class Game {
 							this.restoreImages(this.divs);
 							break;
 						case "break":
-							if (this.breakTimeout) {
-								clearTimeout(this.breakTimeout);
+							if (this.drawTimeout) {
+								clearTimeout(this.drawTimeout);
 							}
 							this.removeEventListeners(this.divs.uncompleted);
 							this.stopAnimation();
@@ -187,11 +187,17 @@ export default class Game {
 							break;
 						case "blockBreak":
 							document.removeEventListener("mousemove", this.recordMousepos);
+							if (this.drawTimeout) {
+								clearTimeout(this.drawTimeout);
+							}
 							this.block = "collab";
 							this.breakdiv = this.displayBlockBreak(this.stage, this.block);
 							break;
 						case "practiceEnd":
 							this.stage = "game";
+							if (this.drawTimeout) {
+								clearTimeout(this.drawTimeout);
+							}
 							document.removeEventListener("mousemove", this.recordMousepos);
 							this.displayBlockInstructions(this.stage, data.data);
 							break;

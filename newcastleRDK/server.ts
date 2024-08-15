@@ -627,41 +627,63 @@ function handleRDKSelection(
 ) {
 	/*
 	more or less handles selection of the RDK. It updates the state with the choice, the time of the choice, and the timestamp.
+	Really only need to worry about checking selection in the collab condition, as the sep condition is handled in the checkResponse function.
 	*/
 	switch (block) {
 		case "collab":
-			hasBeenSelected(state, data);
-			state.RDK.choice.push(data);
-			if (player === "player1") {
-				state.RDK.player[data] = 1;
-				state.P1RDK.choice.push(data);
-				state.P1RDK.mostRecentChoice = data;
-				state.P1RDK.choiceTime[data] = rt;
-				state.RDK.timeStamp[data] = createTimestamp(timeStamp);
-				state.P1RDK.timeStamp[data] = createTimestamp(timeStamp);
-				connections.player1?.send(
-					JSON.stringify({ stage: stage, type: "load", data: data })
-				);
-				connections.player2?.send(
-					JSON.stringify({ stage: stage, type: "playerChoice", data: data })
-				);
-				sendState(state, "player1", stage, block);
-				sendState(state, "player2", stage, block);
-			}
-			if (player === "player2") {
-				state.RDK.player[data] = 2;
-				state.P2RDK.choiceTime[data] = rt;
-				state.P2RDK.mostRecentChoice = data;
-				state.RDK.timeStamp[data] = createTimestamp(timeStamp);
-				state.P2RDK.timeStamp[data] = createTimestamp(timeStamp);
-				connections.player2?.send(
-					JSON.stringify({ stage: stage, type: "load", data: data })
-				);
-				connections.player1?.send(
-					JSON.stringify({ stage: stage, type: "playerChoice", data: data })
-				);
-				sendState(state, "player1", stage, block);
-				sendState(state, "player2", stage, block);
+			if (!hasBeenSelected(state, data)) {
+				state.RDK.choice.push(data);
+				if (player === "player1") {
+					state.RDK.player[data] = 1;
+					state.P1RDK.choice.push(data);
+					state.P1RDK.mostRecentChoice = data;
+					state.P1RDK.choiceTime[data] = rt;
+					state.RDK.timeStamp[data] = createTimestamp(timeStamp);
+					state.P1RDK.timeStamp[data] = createTimestamp(timeStamp);
+					connections.player1?.send(
+						JSON.stringify({ stage: stage, type: "load", data: data })
+					);
+					connections.player2?.send(
+						JSON.stringify({ stage: stage, type: "playerChoice", data: data })
+					);
+					sendState(state, "player1", stage, block);
+					sendState(state, "player2", stage, block);
+				}
+				if (player === "player2") {
+					state.RDK.player[data] = 2;
+					state.P2RDK.choiceTime[data] = rt;
+					state.P2RDK.mostRecentChoice = data;
+					state.RDK.timeStamp[data] = createTimestamp(timeStamp);
+					state.P2RDK.timeStamp[data] = createTimestamp(timeStamp);
+					connections.player2?.send(
+						JSON.stringify({ stage: stage, type: "load", data: data })
+					);
+					connections.player1?.send(
+						JSON.stringify({ stage: stage, type: "playerChoice", data: data })
+					);
+					sendState(state, "player1", stage, block);
+					sendState(state, "player2", stage, block);
+				}
+			} else {
+				if (player === "player1") {
+					connections.player1?.send(
+						JSON.stringify({
+							stage: stage,
+							block: block,
+							type: "completed",
+							data: data,
+						})
+					);
+				} else if (player === "player2") {
+					connections.player2?.send(
+						JSON.stringify({
+							stage: stage,
+							block: block,
+							type: "completed",
+							data: data,
+						})
+					);
+				}
 			}
 			break;
 		case "sep":
