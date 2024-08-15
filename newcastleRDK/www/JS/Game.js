@@ -77,14 +77,14 @@ export default class Game {
 			completed: [],
 		};
 		this.images = [
-			"../Content/Images/rdk_static1.png",
-			"../Content/Images/rdk_static2.png",
-			"../Content/Images/rdk_static3.png",
-			"../Content/Images/rdk_static4.png",
-			"../Content/Images/rdk_static1.png",
-			"../Content/Images/rdk_static2.png",
-			"../Content/Images/rdk_static3.png",
-			"../Content/Images/rdk_static4.png",
+			"Content/Images/rdk_static1.png",
+			"Content/Images/rdk_static2.png",
+			"Content/Images/rdk_static3.png",
+			"Content/Images/rdk_static4.png",
+			"Content/Images/rdk_static1.png",
+			"Content/Images/rdk_static2.png",
+			"Content/Images/rdk_static3.png",
+			"Content/Images/rdk_static4.png",
 		];
 		this.img = [];
 		this.preloadImages(this.images, this.img);
@@ -929,9 +929,13 @@ export default class Game {
 		this.responseHandler = null;
 
 		setTimeout(() => {
-			this.dotTimestamp = Date.now();
-			this.generateDotMotionAperture(Index, divlist, expConsts, direction);
-			this.responseHandler = this.addResponseHandler(Index);
+			if (this.breakdiv) {
+				return;
+			} else {
+				this.dotTimestamp = Date.now();
+				this.generateDotMotionAperture(Index, divlist, expConsts, direction);
+				this.responseHandler = this.addResponseHandler(Index);
+			}
 		}, expConsts.pauseDuration);
 	}
 	drawDot(x, y) {
