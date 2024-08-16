@@ -48,7 +48,7 @@ export default class Game {
 			dotRad: 1.75,
 			apertureRad: 50,
 			dotColor: "rgb(255,255,255)",
-			dotSpeed: 0.75,
+			dotSpeed: 1.5,
 			nDots: 100,
 			coherence: [0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9],
 			directions: [0, 1],
@@ -90,6 +90,7 @@ export default class Game {
 		];
 		this.img = [];
 		this.preloadImages(this.images, this.img);
+		console.log(this.img);
 		window.addEventListener("resize", () => this.resizeCanvas());
 
 		this.coherenceDifficulties = {
@@ -113,7 +114,7 @@ export default class Game {
 		};
 		this.ws.onmessage = (event) => {
 			let data = JSON.parse(event.data);
-			console.log(this.trialNo, this.stage, this.block);
+			console.log(data);
 			switch (data.stage) {
 				case "practice":
 					switch (data.type) {
@@ -124,13 +125,10 @@ export default class Game {
 							this.clearContainer();
 							break;
 						case "startTrial":
-							if (this.breakdiv) {
-								this.breakdiv.remove();
-							}
 							document.addEventListener("mousemove", this.recordMousepos);
+							this.state = this.updateState(data.data, data.block);
 							this.choiceTimestamp = Date.now();
 							this.trialNo += 1;
-							this.state = this.updateState(data.data, data.block);
 							this.createImages(this.img);
 							this.handleDivInteraction(this.divs.uncompleted);
 							break;
@@ -174,8 +172,8 @@ export default class Game {
 							this.restoreImages(this.divs);
 							break;
 						case "break":
-							if (this.breakTimeout) {
-								clearTimeout(this.breakTimeout);
+							if (this.drawTimeout) {
+								clearTimeout(this.drawTimeout);
 							}
 							this.removeEventListeners(this.divs.uncompleted);
 							this.stopAnimation();
@@ -186,13 +184,23 @@ export default class Game {
 								data.data
 							);
 							break;
+						case "alreadySelected":
+							this.divs = this.handleCompletedImages(data.data, this.divs);
+							this.restoreImages(this.divs);
+							break;
 						case "blockBreak":
 							document.removeEventListener("mousemove", this.recordMousepos);
 							this.block = "collab";
+							if (this.drawTimeout) {
+								clearTimeout(this.drawTimeout);
+							}
 							this.breakdiv = this.displayBlockBreak(this.stage, this.block);
 							break;
 						case "practiceEnd":
 							this.stage = "game";
+							if (this.drawTimeout) {
+								clearTimeout(this.drawTimeout);
+							}
 							document.removeEventListener("mousemove", this.recordMousepos);
 							this.displayBlockInstructions(this.stage, data.data);
 							break;
@@ -259,8 +267,8 @@ export default class Game {
 							this.restoreImages(this.divs);
 							break;
 						case "break":
-							if (this.breakTimeout) {
-								clearTimeout(this.breakTimeout);
+							if (this.drawTimeout) {
+								clearTimeout(this.drawTimeout);
 							}
 							this.removeEventListeners(this.divs.uncompleted);
 							this.stopAnimation();
@@ -271,8 +279,15 @@ export default class Game {
 								data.data
 							);
 							break;
+						case "alreadySelected":
+							this.divs = this.handleCompletedImages(data.data, this.divs);
+							this.restoreImages(this.divs);
+							break;
 						case "endBlock":
 							document.removeEventListener("mousemove", this.recordMousepos);
+							if (this.drawTimeout) {
+								clearTimeout(this.drawTimeout);
+							}
 							if (data.plaform) {
 								this.handleInstructionsBreak(
 									data.stage,
@@ -357,6 +372,7 @@ export default class Game {
 		if (this.breakdiv) {
 			this.breakdiv.remove();
 		}
+		console.log("creating Images");
 		const pixelPos = [
 			// Top Center
 			[this.canvas.height / 8, this.canvas.width / 2],
@@ -393,6 +409,7 @@ export default class Game {
 			this.displayDifficultyText(div, difficulty, i); // Display difficulty text
 			this.container.appendChild(div);
 		}
+		console.log(this.divs.uncompleted);
 	}
 	handleInstructionsBreak(stage, block, data, platform) {
 		if (stage === "game") {
@@ -1046,8 +1063,30 @@ export default class Game {
 	animateDots(centerX, centerY, apertureRadius) {
 		if (!this.animating) return;
 
+		// Calculate the time elapsed since the last frame
+		const now = performance.now();
+		if (!this.lastFrameTime) {
+			this.lastFrameTime = now;
+		}
+		const elapsed = now - this.lastFrameTime;
+
+		// Limit to 60 FPS (16.67 ms per frame)
+		const fpsLimit = 1000 / 60; // milliseconds
+
+		if (elapsed < fpsLimit) {
+			// If not enough time has passed, exit without drawing
+			requestAnimationFrame(() =>
+				this.animateDots(centerX, centerY, apertureRadius)
+			);
+			return;
+		}
+
+		// Update the last frame time
+		this.lastFrameTime = now;
+
 		// Clear the entire canvas before drawing
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
 		// Redraw aperture circle
 		this.drawCircle(centerX, centerY, apertureRadius);
 
@@ -1075,6 +1114,7 @@ export default class Game {
 			);
 		}
 	}
+
 	stopAnimation() {
 		this.animating = false;
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);

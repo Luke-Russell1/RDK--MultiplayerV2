@@ -670,7 +670,7 @@ function handleRDKSelection(
 						JSON.stringify({
 							stage: stage,
 							block: block,
-							type: "completed",
+							type: "alreadySelected",
 							data: data,
 						})
 					);
@@ -679,7 +679,7 @@ function handleRDKSelection(
 						JSON.stringify({
 							stage: stage,
 							block: block,
-							type: "completed",
+							type: "alreadySelected",
 							data: data,
 						})
 					);

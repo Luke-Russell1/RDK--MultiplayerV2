@@ -23,7 +23,7 @@ Please read the following statements before proceeding.
 <p>1. I consent to participate in this project. The purpose of this research is to integrate the findings between response-time based methodologies and experimental measures of decision making.</p>
 <p>2. I understand that this project is for research purposes only and not for treatment.</p>
 <p>3. In this project, I will be required to complete a computer-based task. The details of this have been explained in the Participant Information Statement which I can request to be emailed to by emailing the Principal Researcher.</p>
-<p>4. My participation is voluntary, and I am free to withdraw from the project at any time without explanation or prejudice and to withdraw any unprocessed data I have provided. </p>
+<p>4. My participation is voluntary, and I am free to withdraw from the project at any time without explanation. However, I understand I may not recieve compensation in this case. </p>
 <p> 
 
 <input type="checkbox" id="consent_checkbox" />
