@@ -36,6 +36,7 @@ const connections: {
 	player1: null,
 	player2: null,
 };
+
 type Player = {
 	id: number;
 	age: number;
@@ -525,7 +526,7 @@ function updatePlayerMouseState(
 	}
 }
 
-function writeMouse(data: any) {
+function writeMouse(data: any, suffix: "A" | "B") {
 	/*
 	Function for writing the mouse data to a file. File name will include the game number.
 	*/
@@ -534,7 +535,7 @@ function writeMouse(data: any) {
 		const dataString = JSON.stringify(data, null, 2); // Indent JSON for readability
 
 		// Define the filename and path
-		const filename = `game${state.gameNo}mouse.json`;
+		const filename = `game${state.gameNo}${suffix}mouse.json`;
 		const path = `${expValues.dataPath}${filename}`;
 
 		// Write the JSON string to a file
@@ -544,7 +545,7 @@ function writeMouse(data: any) {
 		console.error(`Failed to write data to ${expValues.dataPath}:`, error);
 	}
 }
-function writeData(data: any) {
+function writeData(data: any, suffix: "A" | "B") {
 	/*
 		Function for writing the trial data to a file. File name will include the game number.
 	*/
@@ -553,7 +554,7 @@ function writeData(data: any) {
 		const dataString = JSON.stringify(data, null, 2); // Indent JSON for readability
 
 		// Define the filename and path
-		const filename = `game${state.gameNo}.json`;
+		const filename = `game${state.gameNo}${suffix}.json`;
 		const path = `${expValues.dataPath}${filename}`;
 
 		// Write the JSON string to a file
@@ -911,6 +912,10 @@ function resetStateonConnection(data: State) {
 	newState.gameNo = gameNo;
 	return newState;
 }
+function resetDataArray(data: Array<any>) {
+	let newData: Array<any> = [];
+	return newData;
+}
 function resetMouseState(data: mouseTracking) {
 	let newMouse = Object.assign({}, data);
 	newMouse.player1 = {
@@ -1005,6 +1010,9 @@ function checkBlockCompleted(
 	*/
 	if (block === blocks[0]) {
 		if (state.trialNo === expValues.blockLength) {
+			writeData(dataArray, "A");
+			writeMouse(mouseArray, "A");
+
 			connections.player1?.send(
 				JSON.stringify({
 					stage: "game",
@@ -1028,8 +1036,8 @@ function checkBlockCompleted(
 	}
 	if (block === blocks[1]) {
 		if (state.trialNo === expValues.blockLength) {
-			writeData(dataArray);
-			writeMouse(mouseArray);
+			writeData(dataArray, "B");
+			writeMouse(mouseArray, "B");
 
 			connections.player1?.send(
 				JSON.stringify({
