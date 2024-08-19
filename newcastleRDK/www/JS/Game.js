@@ -125,7 +125,6 @@ export default class Game {
 							this.clearContainer();
 							break;
 						case "startTrial":
-							document.addEventListener("mousemove", this.recordMousepos);
 							this.state = this.updateState(data.data, data.block);
 							this.choiceTimestamp = Date.now();
 							this.trialNo += 1;
@@ -149,7 +148,6 @@ export default class Game {
 							);
 							break;
 						case "completed":
-							document.addEventListener("mousemove", this.recordMousepos);
 							this.choiceTimestamp = Date.now();
 							this.currentlyCompleting = false;
 							this.stopAnimation();
@@ -851,7 +849,6 @@ export default class Game {
 	}
 	handleCompletedImages(ID, divObj) {
 		// Check if the ID exists in divObj.uncompleted
-		document.addEventListener("mousemove", this.recordMousepos);
 		document.removeEventListener("keydown", this.responseHandler);
 		let completedDiv = divObj.uncompleted.find((div) => div.id === ID);
 		if (!completedDiv) {
@@ -917,7 +914,6 @@ export default class Game {
 	}
 
 	handleDivInteraction(divList) {
-		document.addEventListener("mousemove", this.recordMousepos);
 		for (let div of divList) {
 			div.addEventListener("mouseover", this.mouseOverHandler);
 			div.addEventListener("mouseout", this.mouseOutHandler);
