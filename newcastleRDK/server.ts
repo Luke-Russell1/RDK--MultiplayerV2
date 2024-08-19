@@ -6,6 +6,7 @@ import fs, { write } from "node:fs";
 import { Server as WSServer } from "ws";
 import { WebSocket } from "ws";
 import path from "path";
+import { start } from "node:repl";
 
 /*
 [X] Change server routing to redirect on end of exp
@@ -64,6 +65,7 @@ type mouseTracking = {
 	player2: mousePos;
 };
 type State = {
+	startTime: string;
 	gameNo: number;
 	stage: "waitingRoom" | "intro" | "practice" | "game" | "end";
 	block: string;
@@ -140,6 +142,7 @@ const baseRDK: rdk = {
 	timeStamp: [0, 0, 0, 0, 0, 0, 0, 0],
 };
 let state: State = {
+	startTime: "",
 	gameNo: 0,
 	stage: "waitingRoom",
 	block: "sep",
@@ -1817,7 +1820,6 @@ function gameSepMessaging(data: any, ws: WebSocket, connections: any) {
 			break;
 	}
 }
-
 wss.on("connection", function (ws) {
 	if (connections.player1 === null) {
 		connections.player1 = ws;
@@ -1844,6 +1846,8 @@ wss.on("connection", function (ws) {
 	}
 	if (connections.player1 && connections.player2) {
 		if (!testConsts.skipIntro) {
+			let startTime = new Date();
+			state.startTime = startTime.toISOString();
 			state = resetStateonConnection(state);
 			mousePos = resetMouseState(mousePos);
 			dataArray = [];
