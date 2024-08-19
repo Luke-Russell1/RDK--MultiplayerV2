@@ -104,7 +104,7 @@ const expValues = {
 	directions: ["left", "right"],
 	block: ["sep", "collab"],
 	breakLength: 6,
-	dataPath: "data/",
+	dataPath: "/data/",
 	blockLength: 30,
 	practiceTrials: 10,
 	practiceLength1: 12,
