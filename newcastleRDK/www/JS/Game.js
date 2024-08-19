@@ -27,7 +27,7 @@ export default class Game {
 				type: "instructionsComplete",
 			})
 		);
-		console.log("Luke chnages made 1508 11:21pm");
+		console.log("Luke chnages made 1908 1044am");
 		this.container = document.getElementById(containerId);
 		this.clearContainer();
 		this.canvas = document.createElement("canvas");
@@ -44,6 +44,8 @@ export default class Game {
 		this.generateDotMotionAperture = this.generateDotMotionAperture.bind(this);
 		this.recordMousepos = this.recordMousepos.bind(this);
 		this.responseHandler = null;
+		this.lastExecution = 0;
+		this.throttleDelay = 25;
 		this.expConsts = {
 			dotRad: 1.75,
 			apertureRad: 50,
@@ -90,7 +92,6 @@ export default class Game {
 		];
 		this.img = [];
 		this.preloadImages(this.images, this.img);
-		console.log(this.img);
 		window.addEventListener("resize", () => this.resizeCanvas());
 
 		this.coherenceDifficulties = {
@@ -114,7 +115,6 @@ export default class Game {
 		};
 		this.ws.onmessage = (event) => {
 			let data = JSON.parse(event.data);
-			console.log(data);
 			switch (data.stage) {
 				case "practice":
 					switch (data.type) {
@@ -372,7 +372,6 @@ export default class Game {
 		if (this.breakdiv) {
 			this.breakdiv.remove();
 		}
-		console.log("creating Images");
 		const pixelPos = [
 			// Top Center
 			[this.canvas.height / 8, this.canvas.width / 2],
@@ -409,7 +408,6 @@ export default class Game {
 			this.displayDifficultyText(div, difficulty, i); // Display difficulty text
 			this.container.appendChild(div);
 		}
-		console.log(this.divs.uncompleted);
 	}
 	handleInstructionsBreak(stage, block, data, platform) {
 		if (stage === "game") {
@@ -774,15 +772,16 @@ export default class Game {
 	}
 
 	mouseOverHandler(event) {
-		event.currentTarget.style.opacity = 0.5;
+		event.currentTarget.style.border = "1px solid white";
 	}
 
 	mouseOutHandler(event) {
-		event.currentTarget.style.opacity = 1;
+		event.currentTarget.style.border = "none";
 	}
 
 	clickHandler(event) {
 		let choiceEndTime = this.createTimestamp(this.choiceTimestamp);
+		event.currentTarget.style.border = "none";
 		this.ws.send(
 			JSON.stringify({
 				stage: this.stage,
@@ -832,19 +831,23 @@ export default class Game {
 		return responseHandler;
 	}
 	recordMousepos(event) {
-		const x = event.clientX;
-		const y = event.clientY;
-		const width = window.innerWidth;
-		const height = window.innerHeight;
-		this.ws.send(
-			JSON.stringify({
-				stage: this.stage,
-				block: this.block,
-				type: "mousePos",
-				dimmensions: { width, height },
-				data: { x, y },
-			})
-		);
+		const now = Date.now();
+		if (now - this.lastExecution >= this.throttleDelay) {
+			const x = event.clientX;
+			const y = event.clientY;
+			const width = window.innerWidth;
+			const height = window.innerHeight;
+			this.ws.send(
+				JSON.stringify({
+					stage: this.stage,
+					block: this.block,
+					type: "mousePos",
+					dimmensions: { width, height },
+					data: { x, y },
+				})
+			);
+			this.lastExecution = now;
+		}
 	}
 	handleCompletedImages(ID, divObj) {
 		// Check if the ID exists in divObj.uncompleted
@@ -1122,7 +1125,6 @@ export default class Game {
 		this.canvas.height = window.innerHeight;
 	}
 	generateDotMotionAperture(divID, divlist, expConsts, direction) {
-		console.log(this.responseHandler);
 		// Clear previous drawings
 		this.currentlyCompleting = true;
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
