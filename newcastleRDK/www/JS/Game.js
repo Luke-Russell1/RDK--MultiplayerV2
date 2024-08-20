@@ -31,7 +31,10 @@ export default class Game {
 		this.container = document.getElementById(containerId);
 		this.clearContainer();
 		this.canvas = document.createElement("canvas");
+		this.canvas.width = this.container.clientWidth;
+		this.canvas.height = this.container.clientHeight;
 		this.ctx = this.canvas.getContext("2d");
+
 		this.setBackgroundColor("#808080"); // Initial background color
 		this.container.appendChild(this.canvas);
 		this.resizeCanvas();
@@ -42,7 +45,6 @@ export default class Game {
 		this.clickHandler = this.clickHandler.bind(this);
 		this.drawTimeout = null;
 		this.generateDotMotionAperture = this.generateDotMotionAperture.bind(this);
-		this.recordMousepos = this.recordMousepos.bind(this);
 		this.responseHandler = null;
 		this.lastExecution = 0;
 		this.throttleDelay = 25;
@@ -71,7 +73,7 @@ export default class Game {
 		this.rtTimestamp = Date.now();
 		this.totalRTTimestamp = Date.now();
 		this.newDirectionTimeout = null;
-
+		document.addEventListener;
 		/*
         Below controls the images that are displayed on the canvas.
         This will be on a div that corresponds to a cetain difficulty level.
@@ -115,13 +117,15 @@ export default class Game {
 		};
 		this.ws.onmessage = (event) => {
 			let data = JSON.parse(event.data);
+			console.log(data);
 			switch (data.stage) {
 				case "practice":
 					switch (data.type) {
 						case "initialState":
 							this.state = data.data;
 							this.resetDivs();
-							this.resetCanvas(this.canvas);
+							this.canvas = this.resetCanvas(this.canvas);
+							this.ctx = this.canvas.getContext("2d");
 							this.clearContainer();
 							break;
 						case "startTrial":
@@ -187,7 +191,6 @@ export default class Game {
 							this.restoreImages(this.divs);
 							break;
 						case "blockBreak":
-							document.removeEventListener("mousemove", this.recordMousepos);
 							this.block = "collab";
 							if (this.drawTimeout) {
 								clearTimeout(this.drawTimeout);
@@ -199,7 +202,6 @@ export default class Game {
 							if (this.drawTimeout) {
 								clearTimeout(this.drawTimeout);
 							}
-							document.removeEventListener("mousemove", this.recordMousepos);
 							this.displayBlockInstructions(this.stage, data.data);
 							break;
 					}
@@ -282,7 +284,6 @@ export default class Game {
 							this.restoreImages(this.divs);
 							break;
 						case "endBlock":
-							document.removeEventListener("mousemove", this.recordMousepos);
 							if (this.drawTimeout) {
 								clearTimeout(this.drawTimeout);
 							}
@@ -312,6 +313,8 @@ export default class Game {
 	resetCanvas(canvas) {
 		canvas.remove();
 		let canvas2 = document.createElement("canvas");
+		canvas2.width = this.container.clientWidth;
+		canvas2.height = this.container.clientHeight;
 		this.ctx = canvas2.getContext("2d");
 		if (this.container) {
 			this.container.appendChild(canvas2);
@@ -320,6 +323,10 @@ export default class Game {
 			container.appendChild(canvas2);
 		}
 		return canvas2;
+	}
+	resizeCanvas() {
+		this.canvas.width = this.container.clientWidth;
+		this.canvas.height = this.container.clientHeight;
 	}
 	displayBlockInstructions(stage, block) {
 		this.stage = stage;
@@ -334,11 +341,6 @@ export default class Game {
 		let newTime = Date.now();
 		let diff = newTime - timestamp;
 		return diff;
-	}
-	resizeCanvas() {
-		this.canvas.width = this.container.clientWidth;
-		this.canvas.height = this.container.clientHeight;
-		this.render();
 	}
 	render() {
 		// Clear canvas
@@ -449,7 +451,6 @@ export default class Game {
 		if (blockType === "game") {
 			if (block === "sep") {
 				document.removeEventListener("keydown", this.responseHandler);
-				document.removeEventListener("mousemove", this.recordMousepos);
 				// Create a div element for the break overlay
 				const breakDiv = document.createElement("div");
 				let breakText = "";
@@ -667,7 +668,6 @@ export default class Game {
 			this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 			this.clearImageDivs();
 			document.removeEventListener("keydown", this.responseHandler);
-			document.removeEventListener("mousemove", this.recordMousepos);
 			let breakText = "";
 			breakText = `<div align="center">
 				<p> 
@@ -828,25 +828,6 @@ export default class Game {
 		// Optional: return the handler function in case you need to remove it later
 		return responseHandler;
 	}
-	recordMousepos(event) {
-		const now = Date.now();
-		if (now - this.lastExecution >= this.throttleDelay) {
-			const x = event.clientX;
-			const y = event.clientY;
-			const width = window.innerWidth;
-			const height = window.innerHeight;
-			this.ws.send(
-				JSON.stringify({
-					stage: this.stage,
-					block: this.block,
-					type: "mousePos",
-					dimmensions: { width, height },
-					data: { x, y },
-				})
-			);
-			this.lastExecution = now;
-		}
-	}
 	handleCompletedImages(ID, divObj) {
 		// Check if the ID exists in divObj.uncompleted
 		document.removeEventListener("keydown", this.responseHandler);
@@ -923,7 +904,6 @@ export default class Game {
 
 	removeEventListeners(div) {
 		document.removeEventListener("keydown", this.responseHandler);
-		document.removeEventListener("mousemove", this.recordMousepos);
 		if (div && div.parentNode) {
 			div.removeEventListener("mouseover", this.mouseOverHandler);
 			div.removeEventListener("mouseout", this.mouseOutHandler);
@@ -1172,7 +1152,6 @@ export default class Game {
 		this.animating = false;
 
 		// Remove mouse event listeners if they were added to the canvas
-		this.canvas.removeEventListener("mousemove", this.getMousePos.bind(this));
 
 		// Clear image divs
 		this.clearImageDivs();

@@ -30,13 +30,13 @@ function loadInstructions(targetElementId, ws) {
 				if (event.key === "Enter") {
 					loadPracticeInstructions(targetElementId, ws);
 					// Remove the event listener
-					document.removeEventListener("keydown", keyPressHandler);
+					document.removeEventListener("keyup", keyPressHandler);
 					instructionEventListenerAttached = false;
 				}
 			};
 
 			// Add the event listener
-			document.addEventListener("keydown", keyPressHandler);
+			document.addEventListener("keyup", keyPressHandler);
 			instructionEventListenerAttached = true;
 		}
 	} else {

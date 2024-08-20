@@ -1,5 +1,5 @@
 import express from "express";
-import { time } from "node:console";
+import { clear, time } from "node:console";
 import exp from "node:constants";
 import { create } from "node:domain";
 import fs, { write } from "node:fs";
@@ -7,6 +7,7 @@ import { Server as WSServer } from "ws";
 import { WebSocket } from "ws";
 import path from "path";
 import { start } from "node:repl";
+import { send } from "node:process";
 
 /*
 [X] Change server routing to redirect on end of exp
@@ -110,9 +111,9 @@ const expValues = {
 	dataPath: "/data/",
 	blockLength: 30,
 	practiceTrials: 10,
-	practiceLength1: 12,
+	practiceLength1: 3,
 	practiceLength2: 6,
-	practiceBreak1: 12,
+	practiceBreak1: 3,
 	practiceBreak2: 6,
 };
 /*
@@ -176,6 +177,7 @@ let trialsDirections: Array<Array<string>> = [];
 let timeStamp = 0;
 let baseState = deepCopy(state);
 let trialTimeout: NodeJS.Timeout | null = null;
+let breakTimeout: NodeJS.Timeout | null = null;
 let blocks: Array<string> = [];
 let trackingObject = {
 	p1Ready: false,
@@ -298,7 +300,18 @@ function removeConnection(player: "player1" | "player2") {
 		connections.player2 = null;
 	}
 }
-function chooseNewDirection(
+async function sendMessage(connection: WebSocket, message: string) {
+	return new Promise((resolve, reject) => {
+		connection.send(message, (error) => {
+			if (error) {
+				reject(error);
+			} else {
+				resolve(true);
+			}
+		});
+	});
+}
+async function chooseNewDirection(
 	state: State,
 	playerID: "player1" | "player2",
 	index: any,
@@ -316,66 +329,63 @@ function chooseNewDirection(
 			if (playerID === "player1") {
 				let direction = randomChoice(expValues.directions);
 				state.P1RDK.direction[index] = direction;
-				connections.player1?.send(
-					JSON.stringify({
-						stage: stage,
-						block: block,
-						type: "newDirection",
-						data: direction,
-						index: index,
-					})
-				);
-				sendState(state, "player1", stage, block);
-				sendState(state, "player2", stage, block);
+				let message = JSON.stringify({
+					stage: stage,
+					block: block,
+					type: "newDirection",
+					data: direction,
+					index: index,
+				});
+				await sendMessage(connections.player1!, message);
+
+				await sendState(state, "player1", stage, block);
+				await sendState(state, "player2", stage, block);
 			} else if (playerID === "player2") {
 				let direction = randomChoice(expValues.directions);
 				state.P2RDK.direction[index] = direction;
-				connections.player2?.send(
-					JSON.stringify({
-						stage: stage,
-						block: block,
-						type: "newDirection",
-						data: direction,
-						index: index,
-					})
-				);
-				sendState(state, "player1", stage, block);
-				sendState(state, "player2", stage, block);
+				const message = JSON.stringify({
+					stage: stage,
+					block: block,
+					type: "newDirection",
+					data: direction,
+					index: index,
+				});
+				await sendMessage(connections.player2!, message);
+				await sendState(state, "player1", stage, block);
+				await sendState(state, "player2", stage, block);
 			}
 			break;
 		case "sep":
 			if (playerID === "player1") {
 				let direction = randomChoice(expValues.directions);
 				state.P1RDK.direction[index] = direction;
-				connections.player1?.send(
-					JSON.stringify({
-						stage: stage,
-						block: block,
-						type: "newDirection",
-						data: direction,
-						index: index,
-					})
-				);
-				sendState(state, "player1", stage, block);
+				const message = JSON.stringify({
+					stage: stage,
+					block: block,
+					type: "newDirection",
+					data: direction,
+					index: index,
+				});
+				await sendMessage(connections.player1!, message);
+				await sendState(state, "player1", stage, block);
 			} else if (playerID === "player2") {
 				let direction = randomChoice(expValues.directions);
 				state.P2RDK.direction[index] = direction;
-				connections.player2?.send(
-					JSON.stringify({
-						stage: stage,
-						block: block,
-						type: "newDirection",
-						data: direction,
-						index: index,
-					})
-				);
-				sendState(state, "player2", stage, block);
+				const message = JSON.stringify({
+					stage: stage,
+					block: block,
+					type: "newDirection",
+					data: direction,
+					index: index,
+				});
+				await sendMessage(connections.player2!, message);
+				await sendState(state, "player2", stage, block);
 			}
 			break;
 	}
 }
 
-function sendState(
+async function sendState(
 	state: State,
 	playerID: "player1" | "player2",
 	stage: string,
@@ -386,26 +396,27 @@ function sendState(
 	If it matches P2 it will switch the state to so P2 appears as P1 and then sends that transformed state. 
 	*/
 	if (playerID === "player1") {
-		connections.player1?.send(
-			JSON.stringify({ stage: stage, block: block, type: "state", data: state })
-		);
-	}
-	if (playerID === "player2") {
-		let newState = JSON.parse(JSON.stringify(state));
+		const message = JSON.stringify({
+			stage: stage,
+			block: block,
+			type: "state",
+			data: state,
+		});
+		await sendMessage(connections.player1!, message);
+	} else if (playerID === "player2") {
+		let newState = deepCopy(state);
 		newState.P1RDK = state.P2RDK;
 		newState.P2RDK = state.P1RDK;
-		connections.player2?.send(
-			JSON.stringify({
-				stage: stage,
-				block: block,
-				type: "state",
-				data: newState,
-			})
-		);
+		const message = JSON.stringify({
+			stage: stage,
+			block: block,
+			type: "state",
+			data: newState,
+		});
+		await sendMessage(connections.player2!, message);
 	}
 }
-function beginGame(
-	player: "player1" | "player2",
+async function beginGame(
 	directions: Array<string>,
 	state: State,
 	stage: string,
@@ -415,78 +426,36 @@ function beginGame(
 	Initialises the game. It sets the directions for the RDK and sends the state to the players. 
 	The directions are all preloaded, and selected based on the current trial number. 
 	*/
-	switch (stage) {
-		case "game":
-			switch (block) {
-				case "collab":
-					state.RDK.direction = directions;
-					if (player === "player1") {
-						connections.player1?.send(
-							JSON.stringify({
-								stage: stage,
-								block: block,
-								type: "initialState",
-								data: state,
-							})
-						);
-					}
-					if (player === "player2") {
-						connections.player2?.send(
-							JSON.stringify({
-								stage: stage,
-								block: block,
-								type: "initialState",
-								data: state,
-							})
-						);
-					}
-					break;
-				case "sep":
-					if (player === "player1") {
-						state.RDK.direction = directions;
-						state.P1RDK.direction = directions;
-						connections.player1?.send(
-							JSON.stringify({
-								stage: stage,
-								block: block,
-								type: "initialState",
-								data: state,
-							})
-						);
-					}
-					if (player === "player2") {
-						state.RDK.direction = directions;
-						state.P2RDK.direction = directions;
-						connections.player2?.send(
-							JSON.stringify({
-								stage: stage,
-								block: block,
-								type: "initialState",
-								data: state,
-							})
-						);
-					}
-					break;
-			}
+	switch (block) {
+		case "collab":
+			state.RDK.direction = directions;
+			const collabMessage = JSON.stringify({
+				stage: stage,
+				block: block,
+				type: "initialState",
+				data: state,
+			});
+			await Promise.all([
+				sendMessage(connections.player1!, collabMessage),
+				sendMessage(connections.player2!, collabMessage),
+			]);
 			break;
-		case "practice":
-			if (player === "player1") {
-				state.RDK.direction = directions;
-				state.P1RDK.direction = directions;
-				connections.player1?.send(
-					JSON.stringify({ type: "initialState", data: state, block: block })
-				);
-			}
-			if (player === "player2") {
-				state.RDK.direction = directions;
-				state.P2RDK.direction = directions;
-				connections.player2?.send(
-					JSON.stringify({ type: "initialState", data: state, block: block })
-				);
-			}
+		case "sep":
+			state.RDK.direction = directions;
+			state.P1RDK.direction = directions;
+			state.P2RDK.direction = directions;
+			const sepMessage = JSON.stringify({
+				stage: stage,
+				block: block,
+				type: "initialState",
+				data: state,
+			});
+			await Promise.all([
+				sendMessage(connections.player1!, sepMessage),
+				sendMessage(connections.player2!, sepMessage),
+			]);
 	}
 }
-
 function updatePlayerMouseState(
 	stage: string,
 	block: string,
@@ -622,7 +591,7 @@ function hasBeenSelected(state: State, data: any) {
 		return false;
 	}
 }
-function handleRDKSelection(
+async function handleRDKSelection(
 	player: "player1" | "player2",
 	data: any,
 	rt: any,
@@ -645,14 +614,22 @@ function handleRDKSelection(
 					state.P1RDK.choiceTime[data] = rt;
 					state.RDK.timeStamp[data] = createTimestamp(timeStamp);
 					state.P1RDK.timeStamp[data] = createTimestamp(timeStamp);
-					connections.player1?.send(
-						JSON.stringify({ stage: stage, type: "load", data: data })
-					);
-					connections.player2?.send(
-						JSON.stringify({ stage: stage, type: "playerChoice", data: data })
-					);
-					sendState(state, "player1", stage, block);
-					sendState(state, "player2", stage, block);
+					const loadMessage = JSON.stringify({
+						stage: stage,
+						type: "load",
+						data: data,
+					});
+					const choiceMessage = JSON.stringify({
+						stage: stage,
+						type: "playerChoice",
+						data: data,
+					});
+					await sendMessage(connections.player2!, choiceMessage);
+					await sendMessage(connections.player1!, loadMessage);
+					await Promise.all([
+						sendState(state, "player1", stage, block),
+						sendState(state, "player2", stage, block),
+					]);
 				}
 				if (player === "player2") {
 					state.RDK.player[data] = 2;
@@ -660,34 +637,40 @@ function handleRDKSelection(
 					state.P2RDK.mostRecentChoice = data;
 					state.RDK.timeStamp[data] = createTimestamp(timeStamp);
 					state.P2RDK.timeStamp[data] = createTimestamp(timeStamp);
-					connections.player2?.send(
-						JSON.stringify({ stage: stage, type: "load", data: data })
-					);
-					connections.player1?.send(
-						JSON.stringify({ stage: stage, type: "playerChoice", data: data })
-					);
-					sendState(state, "player1", stage, block);
-					sendState(state, "player2", stage, block);
+					const loadMessage = JSON.stringify({
+						stage: stage,
+						type: "load",
+						data: data,
+					});
+					const choiceMessage = JSON.stringify({
+						stage: stage,
+						type: "playerChoice",
+						data: data,
+					});
+					await sendMessage(connections.player1!, choiceMessage);
+					await sendMessage(connections.player2!, loadMessage);
+					await Promise.all([
+						sendState(state, "player1", stage, block),
+						sendState(state, "player2", stage, block),
+					]);
 				}
 			} else {
 				if (player === "player1") {
-					connections.player1?.send(
-						JSON.stringify({
-							stage: stage,
-							block: block,
-							type: "alreadySelected",
-							data: data,
-						})
-					);
+					const message = JSON.stringify({
+						stage: stage,
+						block: block,
+						type: "alreadySelected",
+						data: data,
+					});
+					await sendMessage(connections.player1!, message);
 				} else if (player === "player2") {
-					connections.player2?.send(
-						JSON.stringify({
-							stage: stage,
-							block: block,
-							type: "alreadySelected",
-							data: data,
-						})
-					);
+					const message = JSON.stringify({
+						stage: stage,
+						block: block,
+						type: "alreadySelected",
+						data: data,
+					});
+					await sendMessage(connections.player2!, message);
 				}
 			}
 			break;
@@ -697,19 +680,25 @@ function handleRDKSelection(
 				state.P1RDK.choiceTime[data] = rt;
 				state.P1RDK.timeStamp[data] = createTimestamp(timeStamp);
 				state.P1RDK.mostRecentChoice = data;
-				connections.player1?.send(
-					JSON.stringify({ stage: stage, type: "load", data: data })
-				);
-				sendState(state, "player1", stage, block);
+				const message = JSON.stringify({
+					stage: stage,
+					type: "load",
+					data: data,
+				});
+				await sendMessage(connections.player1!, message);
+				await sendState(state, "player1", stage, block);
 			} else if (player === "player2") {
 				state.P2RDK.choiceTime[data] = rt;
 				state.P2RDK.choice.push(data);
 				state.P2RDK.timeStamp[data] = createTimestamp(timeStamp);
 				state.P2RDK.mostRecentChoice = data;
-				connections.player2?.send(
-					JSON.stringify({ stage: stage, type: "load", data: data })
-				);
-				sendState(state, "player2", stage, block);
+				const message = JSON.stringify({
+					stage: stage,
+					type: "load",
+					data: data,
+				});
+				await sendMessage(connections.player2!, message);
+				await sendState(state, "player2", stage, block);
 			}
 			break;
 	}
@@ -766,7 +755,7 @@ function updateCollabStateOnResponse(
 	}
 }
 
-function checkResponse(
+async function checkResponse(
 	player: "player1" | "player2",
 	data: string,
 	id: any,
@@ -787,6 +776,13 @@ function checkResponse(
 				if (state.P1RDK.mostRecentChoice !== id) {
 				} else {
 					if (state.RDK.direction[id] === data) {
+						const message = JSON.stringify({
+							stage: stage,
+							block: block,
+							type: "completed",
+							data: id,
+						});
+						await sendMessage(connections.player1!, message);
 						updateCollabStateOnResponse(
 							state,
 							"player1",
@@ -795,17 +791,10 @@ function checkResponse(
 							rt,
 							totalRt
 						);
-						sendState(state, "player1", stage, block);
-						sendState(state, "player2", stage, block);
-						connections.player1?.send(
-							JSON.stringify({
-								stage: stage,
-								block: block,
-								type: "completed",
-								data: id,
-							})
-						);
+						await sendState(state, "player1", stage, block);
+						await sendState(state, "player2", stage, block);
 					} else if (state.RDK.direction[id] !== data) {
+						await chooseNewDirection(state, "player1", id, stage, block);
 						updateCollabStateOnResponse(
 							state,
 							"player1",
@@ -814,13 +803,19 @@ function checkResponse(
 							rt,
 							totalRt
 						);
-						chooseNewDirection(state, "player1", id, stage, block);
 					}
 				}
 			} else if (player === "player2") {
 				if (state.P2RDK.mostRecentChoice !== id) {
 				} else {
 					if (state.RDK.direction[id] === data) {
+						const message = JSON.stringify({
+							stage: stage,
+							block: block,
+							type: "completed",
+							data: id,
+						});
+						await sendMessage(connections.player2!, message);
 						updateCollabStateOnResponse(
 							state,
 							"player2",
@@ -829,17 +824,10 @@ function checkResponse(
 							rt,
 							totalRt
 						);
-						sendState(state, "player1", stage, block);
-						sendState(state, "player2", stage, block);
-						connections.player2?.send(
-							JSON.stringify({
-								stage: stage,
-								block: block,
-								type: "completed",
-								data: id,
-							})
-						);
+						await sendState(state, "player1", stage, block);
+						await sendState(state, "player2", stage, block);
 					} else if (state.RDK.direction[id] !== data) {
+						await chooseNewDirection(state, "player2", id, stage, block);
 						updateCollabStateOnResponse(
 							state,
 							"player2",
@@ -848,8 +836,6 @@ function checkResponse(
 							rt,
 							totalRt
 						);
-
-						chooseNewDirection(state, "player2", id, stage, block);
 					}
 				}
 			}
@@ -859,25 +845,25 @@ function checkResponse(
 				if (state.P1RDK.mostRecentChoice !== id) {
 				} else {
 					if (state.P1RDK.direction[id] === data) {
+						const message = JSON.stringify({
+							stage: stage,
+							block: block,
+							type: "completed",
+							data: id,
+						});
+						await sendMessage(connections.player1!, message);
 						state.P1RDK.totalReactionTIme[id].push(totalRt);
 						state.P1RDK.reactionTime[id].push(rt);
 						state.P1RDK.completed[id] = true;
 						state.P1RDK.attempts[id] += 1;
-						sendState(state, "player1", stage, block);
-						connections.player1?.send(
-							JSON.stringify({
-								stage: stage,
-								block: block,
-								type: "completed",
-								data: id,
-							})
-						);
+						await sendState(state, "player1", stage, block);
 					} else if (state.RDK.direction[id] !== data) {
+						await chooseNewDirection(state, "player1", id, stage, block);
 						state.P1RDK.attempts[id] += 1;
 						state.P1RDK.reactionTime[id].push(rt);
 						state.P1RDK.totalReactionTIme[id].push(totalRt);
 						state.P1RDK.incorrectDirection[id].push(state.P1RDK.direction[id]);
-						chooseNewDirection(state, "player1", id, stage, block);
+						await sendState(state, "player1", stage, block);
 					}
 				}
 			}
@@ -885,25 +871,25 @@ function checkResponse(
 				if (state.P2RDK.mostRecentChoice !== id) {
 				} else {
 					if (state.P2RDK.direction[id] === data) {
+						const message = JSON.stringify({
+							stage: stage,
+							block: block,
+							type: "completed",
+							data: id,
+						});
+						await sendMessage(connections.player2!, message);
 						state.P2RDK.totalReactionTIme[id].push(totalRt);
 						state.P2RDK.reactionTime[id].push(rt);
 						state.P2RDK.completed[id] = true;
 						state.P2RDK.attempts[id] += 1;
-						sendState(state, "player2", stage, block);
-						connections.player2?.send(
-							JSON.stringify({
-								stage: stage,
-								block: block,
-								type: "completed",
-								data: id,
-							})
-						);
+						await sendState(state, "player2", stage, block);
 					} else if (state.RDK.direction[id] !== data) {
+						await chooseNewDirection(state, "player2", id, stage, block);
 						state.P2RDK.attempts[id] += 1;
 						state.P2RDK.reactionTime[id].push(rt);
 						state.P2RDK.totalReactionTIme[id].push(totalRt);
 						state.P2RDK.incorrectDirection[id].push(state.P2RDK.direction[id]);
-						chooseNewDirection(state, "player2", id, stage, block);
+						await sendState(state, "player2", stage, block);
 					}
 				}
 			}
@@ -1003,7 +989,7 @@ function endTrialEarly(
 		}
 	}
 }
-function checkBlockCompleted(
+async function checkBlockCompleted(
 	state: State,
 	block: string,
 	blocks: Array<string>
@@ -1014,25 +1000,17 @@ function checkBlockCompleted(
 	*/
 	if (block === blocks[0]) {
 		if (state.trialNo === expValues.blockLength) {
+			const message = JSON.stringify({
+				stage: "game",
+				block: block,
+				type: "endBlock",
+				data: "endBlock",
+			});
+			await Promise.all([
+				sendMessage(connections.player1!, message),
+				sendMessage(connections.player2!, message),
+			]);
 			writeData(dataArray, "A");
-			writeMouse(mouseArray, "A");
-
-			connections.player1?.send(
-				JSON.stringify({
-					stage: "game",
-					block: block,
-					type: "endBlock",
-					data: "endBlock",
-				})
-			);
-			connections.player2?.send(
-				JSON.stringify({
-					stage: "game",
-					block: block,
-					type: "endBlock",
-					data: "endBlock",
-				})
-			);
 			return true;
 		} else {
 			return false;
@@ -1040,27 +1018,25 @@ function checkBlockCompleted(
 	}
 	if (block === blocks[1]) {
 		if (state.trialNo === expValues.blockLength) {
+			const p1Message = JSON.stringify({
+				stage: "game",
+				block: block,
+				type: "endBlock",
+				data: "endExp",
+				platform: state.player1.platform,
+			});
+			const p2Message = JSON.stringify({
+				stage: "game",
+				block: block,
+				type: "endBlock",
+				data: "endExp",
+				platform: state.player2.platform,
+			});
+			await Promise.all([
+				sendMessage(connections.player1!, p1Message),
+				sendMessage(connections.player2!, p2Message),
+			]);
 			writeData(dataArray, "B");
-			writeMouse(mouseArray, "B");
-
-			connections.player1?.send(
-				JSON.stringify({
-					stage: "game",
-					block: block,
-					type: "endBlock",
-					data: "endExp",
-					platform: state.player1.platform,
-				})
-			);
-			connections.player2?.send(
-				JSON.stringify({
-					stage: "game",
-					block: block,
-					type: "endBlock",
-					data: "endExp",
-					platform: state.player2.platform,
-				})
-			);
 			return true;
 		} else {
 			return false;
@@ -1093,84 +1069,83 @@ function calculateBreakInfo(state: State, player: "player1" | "player2") {
 	return breakInfo;
 }
 
-function startTrials(block: string) {
+async function startTrials(block: string) {
 	/*
 	Timestamp is used to calculate the time different messages arrive compared to the beginning of the trial. 
 	creates a timeout to track time for each trial, and calls the startBreak function whestaten the trial is over.
 	*/
 	timeStamp = Date.now();
-	connections.player1?.send(
-		JSON.stringify({
+	state = resetState(state, baseRDK, false);
+	state.RDK.direction = trialsDirections[state.trialNo];
+	state.P1RDK.direction = trialsDirections[state.trialNo];
+	state.P2RDK.direction = trialsDirections[state.trialNo];
+	try {
+		const message = JSON.stringify({
 			stage: "game",
 			block: block,
 			type: "startTrial",
 			data: state,
-		})
-	);
-	connections.player2?.send(
-		JSON.stringify({
-			stage: "game",
-			block: block,
-			type: "startTrial",
-			data: state,
-		})
-	);
-	if (!trialTimeout) {
+		});
+		await Promise.all([
+			sendMessage(connections.player1!, message),
+			sendMessage(connections.player2!, message),
+		]);
+
 		trialTimeout = setTimeout(() => {
 			startBreak(block);
 		}, expValues.trialLength * 1000);
-	} else {
-		clearTimeout(trialTimeout);
-		trialTimeout = setTimeout(() => {
-			startBreak(block);
-		}, expValues.trialLength * 1000);
+	} catch (error) {
+		console.error("Error in startTrials", error);
 	}
 }
 
-function startBreak(block: string) {
+async function startBreak(block: string) {
 	/*
 	Saves trial data and increments the trial number. If the block is not completed, it will calculate the break info and send it to the players.
 	Calls start trial assumming checkBlock doesn't return true.
 	*/
-	state.RDK.completionTime = createTimestamp(Date.now());
-	state.P1RDK.completionTime = createTimestamp(Date.now());
-	state.P2RDK.completionTime = createTimestamp(Date.now());
-	saveTrialData(state, block);
-	state.trialNo += 1;
-	if (!checkBlockCompleted(state, block, blocks)) {
-		let p1BreakInfo = calculateBreakInfo(state, "player1");
-		let p2BreakInfo = calculateBreakInfo(state, "player2");
-		let newState = resetState(state, baseRDK, false);
-		state = newState;
-		state.RDK.direction = trialsDirections[state.trialNo];
-		state.P1RDK.direction = trialsDirections[state.trialNo];
-		state.P2RDK.direction = trialsDirections[state.trialNo];
-		connections.player1?.send(
-			JSON.stringify({
+	try {
+		state.RDK.completionTime = createTimestamp(Date.now());
+		state.P1RDK.completionTime = createTimestamp(Date.now());
+		state.P2RDK.completionTime = createTimestamp(Date.now());
+		saveTrialData(state, block);
+		state.trialNo += 1;
+		if (!checkBlockCompleted(state, block, blocks)) {
+			let p1BreakInfo = calculateBreakInfo(state, "player1");
+			let p2BreakInfo = calculateBreakInfo(state, "player2");
+
+			const message1 = JSON.stringify({
 				stage: "game",
 				block: block,
 				type: "break",
 				data: p1BreakInfo,
-			})
-		);
-		connections.player2?.send(
-			JSON.stringify({
+			});
+			const message2 = JSON.stringify({
 				stage: "game",
 				block: block,
 				type: "break",
 				data: p2BreakInfo,
-			})
-		);
-
-		setTimeout(() => {
-			startTrials(block);
-		}, expValues.breakLength * 1000);
-	} else {
-		checkBlockCompleted(state, block, blocks);
+			});
+			await Promise.all([
+				sendMessage(connections.player1!, message1),
+				sendMessage(connections.player2!, message2),
+			]);
+			let blockCompleted = await checkBlockCompleted(state, block, blocks);
+			if (!blockCompleted) {
+				setTimeout(() => {
+					startTrials(block);
+				}, expValues.breakLength * 1000);
+			}
+		}
+	} catch (error) {
+		console.error("Error in startBreak", error);
 	}
 }
 
-function handlePracticeTrials(directions: Array<Array<string>>, block: string) {
+async function handlePracticeTrials(
+	directions: Array<Array<string>>,
+	block: string
+) {
 	/*
 	Same as startTrials but for the practice trials.
 	*/
@@ -1179,22 +1154,16 @@ function handlePracticeTrials(directions: Array<Array<string>>, block: string) {
 	state.P1RDK.direction = directions[state.trialNo];
 	state.P2RDK.direction = directions[state.trialNo];
 	state.RDK.direction = directions[state.trialNo];
-	connections.player1?.send(
-		JSON.stringify({
-			stage: "practice",
-			block: block,
-			type: "startTrial",
-			data: state,
-		})
-	);
-	connections.player2?.send(
-		JSON.stringify({
-			stage: "practice",
-			block: block,
-			type: "startTrial",
-			data: state,
-		})
-	);
+	const message = JSON.stringify({
+		stage: "practice",
+		block: block,
+		type: "startTrial",
+		data: state,
+	});
+	await Promise.all([
+		sendMessage(connections.player1!, message),
+		sendMessage(connections.player2!, message),
+	]);
 	if (state.trialNo < 7) {
 		trialTimeout = setTimeout(() => {
 			startPracticeBreak(block);
@@ -1410,7 +1379,11 @@ function handleIntroductionMessaging(
 			break;
 	}
 }
-function practiceSepMessaging(data: any, ws: WebSocket, connections: any) {
+async function practiceSepMessaging(
+	data: any,
+	ws: WebSocket,
+	connections: any
+) {
 	switch (data.type) {
 		case "instructionsComplete":
 			if (connections.player1 === ws) {
@@ -1424,39 +1397,14 @@ function practiceSepMessaging(data: any, ws: WebSocket, connections: any) {
 				trialsDirections = createTrials(state, "exp");
 				blocks = chooseBlock("exp");
 				beginGame(
-					"player1",
 					practiceTrialsDirections[state.trialNo],
 					state,
 					data.stage,
 					data.block
 				);
-				beginGame(
-					"player2",
-					practiceTrialsDirections[state.trialNo],
-					state,
-					data.stage,
-					data.block
-				);
+				trackingObject.p1PracticeReady = false;
+				trackingObject.p2PracticeReady = false;
 				handlePracticeTrials(practiceTrialsDirections, "sep");
-			}
-			break;
-		case "mousePos":
-			if (ws === connections.player1) {
-				updatePlayerMouseState(
-					data.stage,
-					data.block,
-					"player1",
-					data.dimmensions,
-					data.data
-				);
-			} else if (ws === connections.player2) {
-				updatePlayerMouseState(
-					data.stage,
-					data.block,
-					"player2",
-					data.dimmensions,
-					data.data
-				);
 			}
 			break;
 		case "difficulty":
@@ -1510,29 +1458,26 @@ function practiceSepMessaging(data: any, ws: WebSocket, connections: any) {
 			break;
 	}
 }
-function practiceCollabMessaging(data: any, ws: WebSocket, connections: any) {
+async function practiceCollabMessaging(
+	data: any,
+	ws: WebSocket,
+	connections: any
+) {
+	console.log(trackingObject);
 	switch (data.type) {
 		case "gameReady":
 			if (connections.player1 === ws) {
-				beginGame(
-					"player1",
-					practiceTrialsDirections[state.trialNo],
-					state,
-					data.stage,
-					data.block
-				);
 				trackingObject.p1PracticeReady = true;
 			} else if (connections.player2 === ws) {
-				beginGame(
-					"player2",
-					practiceTrialsDirections[state.trialNo],
-					state,
-					data.stage,
-					data.block
-				);
 				trackingObject.p2PracticeReady = true;
 			}
 			if (trackingObject.p1PracticeReady && trackingObject.p2PracticeReady) {
+				beginGame(
+					practiceTrialsDirections[state.trialNo],
+					state,
+					data.stage,
+					data.block
+				);
 				handlePracticeTrials(practiceTrialsDirections, "collab");
 			}
 			break;
@@ -1623,6 +1568,10 @@ function practiceCollabMessaging(data: any, ws: WebSocket, connections: any) {
 			break;
 	}
 }
+async function practiceMessaging(data: any, ws: WebSocket, connections: any) {
+	await practiceSepMessaging(data, ws, connections);
+	await practiceCollabMessaging(data, ws, connections);
+}
 function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
 	switch (data.type) {
 		case "instructionsComplete":
@@ -1634,14 +1583,6 @@ function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
 			if (trackingObject.p1TrialReady && trackingObject.p2TrialReady) {
 				state = resetState(state, baseRDK, true);
 				beginGame(
-					"player1",
-					trialsDirections[state.trialNo],
-					state,
-					data.stage,
-					data.block
-				);
-				beginGame(
-					"player2",
 					trialsDirections[state.trialNo],
 					state,
 					data.stage,
@@ -1732,39 +1673,12 @@ function gameSepMessaging(data: any, ws: WebSocket, connections: any) {
 				state.stage = "game";
 				state.block = "sep";
 				beginGame(
-					"player1",
-					trialsDirections[state.trialNo],
-					state,
-					data.stage,
-					data.block
-				);
-				beginGame(
-					"player2",
 					trialsDirections[state.trialNo],
 					state,
 					data.stage,
 					data.block
 				);
 				startTrials(data.block);
-			}
-			break;
-		case "mousePos":
-			if (ws === connections.player1) {
-				updatePlayerMouseState(
-					data.stage,
-					data.block,
-					"player1",
-					data.dimmensions,
-					data.data
-				);
-			} else if (ws === connections.player2) {
-				updatePlayerMouseState(
-					data.stage,
-					data.block,
-					"player2",
-					data.dimmensions,
-					data.data
-				);
 			}
 			break;
 		case "difficulty":
