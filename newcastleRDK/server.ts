@@ -384,7 +384,7 @@ async function chooseNewDirection(
 			break;
 	}
 }
-
+// added change
 async function sendState(
 	state: State,
 	playerID: "player1" | "player2",
