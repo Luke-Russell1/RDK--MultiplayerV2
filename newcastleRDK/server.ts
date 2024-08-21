@@ -1098,7 +1098,6 @@ async function startTrials(block: string) {
 		]);
 
 		setTimeout(() => {
-			console.log("setting timeout for break");
 			startBreak(block);
 		}, expValues.trialLength * 1000);
 	} catch (error) {
