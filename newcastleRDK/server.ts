@@ -630,8 +630,7 @@ async function handleRDKSelection(
 						sendState(state, "player1", stage, block),
 						sendState(state, "player2", stage, block),
 					]);
-				}
-				if (player === "player2") {
+				} else if (player === "player2") {
 					state.RDK.player[data] = 2;
 					state.P2RDK.choiceTime[data] = rt;
 					state.P2RDK.mostRecentChoice = data;
@@ -1091,7 +1090,8 @@ async function startTrials(block: string) {
 			sendMessage(connections.player2!, message),
 		]);
 
-		trialTimeout = setTimeout(() => {
+		setTimeout(() => {
+			console.log("setting timeout for break");
 			startBreak(block);
 		}, expValues.trialLength * 1000);
 	} catch (error) {
@@ -1104,16 +1104,16 @@ async function startBreak(block: string) {
 	Saves trial data and increments the trial number. If the block is not completed, it will calculate the break info and send it to the players.
 	Calls start trial assumming checkBlock doesn't return true.
 	*/
+	state.RDK.completionTime = createTimestamp(Date.now());
+	state.P1RDK.completionTime = createTimestamp(Date.now());
+	state.P2RDK.completionTime = createTimestamp(Date.now());
+	saveTrialData(state, block);
+	state.trialNo += 1;
 	try {
-		state.RDK.completionTime = createTimestamp(Date.now());
-		state.P1RDK.completionTime = createTimestamp(Date.now());
-		state.P2RDK.completionTime = createTimestamp(Date.now());
-		saveTrialData(state, block);
-		state.trialNo += 1;
-		if (!checkBlockCompleted(state, block, blocks)) {
+		let completed = await checkBlockCompleted(state, block, blocks);
+		if (!completed) {
 			let p1BreakInfo = calculateBreakInfo(state, "player1");
 			let p2BreakInfo = calculateBreakInfo(state, "player2");
-
 			const message1 = JSON.stringify({
 				stage: "game",
 				block: block,
@@ -1130,12 +1130,11 @@ async function startBreak(block: string) {
 				sendMessage(connections.player1!, message1),
 				sendMessage(connections.player2!, message2),
 			]);
-			let blockCompleted = await checkBlockCompleted(state, block, blocks);
-			if (!blockCompleted) {
-				setTimeout(() => {
-					startTrials(block);
-				}, expValues.breakLength * 1000);
-			}
+			setTimeout(() => {
+				startTrials(block);
+			}, expValues.breakLength * 1000);
+		} else {
+			return;
 		}
 	} catch (error) {
 		console.error("Error in startBreak", error);
@@ -1463,7 +1462,6 @@ async function practiceCollabMessaging(
 	ws: WebSocket,
 	connections: any
 ) {
-	console.log(trackingObject);
 	switch (data.type) {
 		case "gameReady":
 			if (connections.player1 === ws) {
