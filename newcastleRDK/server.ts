@@ -67,6 +67,7 @@ type mouseTracking = {
 };
 type State = {
 	startTime: string;
+	endTime: string;
 	gameNo: number;
 	stage: "waitingRoom" | "intro" | "practice" | "game" | "end";
 	block: string;
@@ -111,9 +112,9 @@ const expValues = {
 	dataPath: "/data/",
 	blockLength: 30,
 	practiceTrials: 10,
-	practiceLength1: 3,
+	practiceLength1: 12,
 	practiceLength2: 6,
-	practiceBreak1: 3,
+	practiceBreak1: 12,
 	practiceBreak2: 6,
 };
 /*
@@ -144,6 +145,7 @@ const baseRDK: rdk = {
 };
 let state: State = {
 	startTime: "",
+	endTime: "",
 	gameNo: 0,
 	stage: "waitingRoom",
 	block: "sep",
@@ -192,6 +194,8 @@ let trackingObject = {
 	p2SkipReady: false,
 	p1sepInstruction: false,
 	p2sepInstruction: false,
+	p1endPageReached: false,
+	p2endPageReached: false,
 };
 let trackingObjectCopy = deepCopy(trackingObject);
 
@@ -518,7 +522,7 @@ function writeMouse(data: any, suffix: "A" | "B") {
 		console.error(`Failed to write data to ${expValues.dataPath}:`, error);
 	}
 }
-function writeData(data: any, suffix: "A" | "B") {
+async function writeData(data: any, suffix: "A" | "B") {
 	/*
 		Function for writing the trial data to a file. File name will include the game number.
 	*/
@@ -1009,7 +1013,8 @@ async function checkBlockCompleted(
 				sendMessage(connections.player1!, message),
 				sendMessage(connections.player2!, message),
 			]);
-			writeData(dataArray, "A");
+			await writeData(dataArray, "A");
+			state.block = blocks[1];
 			return true;
 		} else {
 			return false;
@@ -1035,7 +1040,9 @@ async function checkBlockCompleted(
 				sendMessage(connections.player1!, p1Message),
 				sendMessage(connections.player2!, p2Message),
 			]);
-			writeData(dataArray, "B");
+			let endTime = new Date();
+			state.endTime = endTime.toISOString();
+			await writeData(dataArray, "B");
 			return true;
 		} else {
 			return false;
@@ -1174,7 +1181,7 @@ async function handlePracticeTrials(
 	}
 }
 
-function startPracticeBreak(block: string) {
+async function startPracticeBreak(block: string) {
 	/*
 	Same as startBreak but for the practice trials.
 	*/
@@ -1217,27 +1224,28 @@ function startPracticeBreak(block: string) {
 		}
 	}
 	if (block === "sep" && state.trialNo === 5) {
-		connections.player1?.send(
-			JSON.stringify({ stage: "practice", type: "blockBreak", data: state })
-		);
-		connections.player2?.send(
-			JSON.stringify({ stage: "practice", type: "blockBreak", data: state })
-		);
+		const message = JSON.stringify({
+			stage: "practice",
+			type: "blockBreak",
+			data: state,
+		});
+		await Promise.all([
+			sendMessage(connections.player1!, message),
+			sendMessage(connections.player2!, message),
+		]);
+		state.block = "collab";
 	} else if (block === "collab" && state.trialNo === 10) {
-		connections.player1?.send(
-			JSON.stringify({
-				stage: "practice",
-				type: "practiceEnd",
-				data: blocks[0],
-			})
-		);
-		connections.player2?.send(
-			JSON.stringify({
-				stage: "practice",
-				type: "practiceEnd",
-				data: blocks[0],
-			})
-		);
+		const message = JSON.stringify({
+			stage: "practice",
+			type: "practiceEnd",
+			data: blocks[0],
+		});
+		await Promise.all([
+			sendMessage(connections.player1!, message),
+			sendMessage(connections.player2!, message),
+		]);
+		state.stage = "game";
+		state.block = blocks[0];
 	}
 }
 
@@ -1331,7 +1339,7 @@ function skipToBlock(stage: string, block: string) {
 	}
 }
 
-function handleIntroductionMessaging(
+async function handleIntroductionMessaging(
 	type: string,
 	ws: WebSocket,
 	connections: any,
@@ -1368,12 +1376,16 @@ function handleIntroductionMessaging(
 				trackingObject.P1InstructionsFinished &&
 				trackingObject.P2InstructionsFinished
 			) {
-				connections.player1?.send(
-					JSON.stringify({ stage: "practice", message: "beginGame" })
-				);
-				connections.player2?.send(
-					JSON.stringify({ stage: "practice", message: "beginGame" })
-				);
+				const message = JSON.stringify({
+					stage: "practice",
+					message: "beginGame",
+				});
+				await Promise.all([
+					sendMessage(connections.player1, message),
+					sendMessage(connections.player2, message),
+				]);
+				state.stage = "practice";
+				state.block = "sep";
 			}
 			break;
 	}
@@ -1587,6 +1599,8 @@ function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
 					data.block
 				);
 				startTrials(data.block);
+				trackingObject.p1TrialReady = false;
+				trackingObject.p2TrialReady = false;
 			}
 			break;
 		case "difficulty":
@@ -1730,47 +1744,70 @@ function gameSepMessaging(data: any, ws: WebSocket, connections: any) {
 			break;
 	}
 }
-wss.on("connection", function (ws) {
-	if (connections.player1 === null) {
+async function handleExpEnd(state: State, dataArray: any) {
+	/*
+	Handles the end of the experiment. This is called when the players have completed the game trials. 
+	*/
+	state = resetStateonConnection(state);
+	dataArray = resetDataArray(dataArray);
+	trackingObject = deepCopy(trackingObjectCopy);
+	return { state, dataArray, trackingObject };
+}
+async function handleExpStart(state: State, dataArray: any) {
+	/*
+	Handles the start of the experiment. This is called when the players have completed the practice trials. 
+	*/
+	state = resetStateonConnection(state);
+	let startTime = new Date();
+	state.startTime = startTime.toISOString();
+	state.stage = "intro";
+	state.block = "consentForm";
+	state.RDK.coherence = shuffle(expValues.coherence);
+	dataArray = resetDataArray(dataArray);
+	trackingObject = deepCopy(trackingObjectCopy);
+	const message = JSON.stringify({ stage: "intro", type: "consentForm" });
+	await Promise.all([
+		sendMessage(connections.player1!, message),
+		sendMessage(connections.player2!, message),
+	]);
+	return { state, dataArray, trackingObject };
+}
+async function handleInitialConnection(
+	player: "player1" | "player2",
+	ws: WebSocket
+) {
+	/*
+	Handles the initial connection of the player. This is called when the player connects to the server. 
+	*/
+	let message = JSON.stringify({ stage: "waitingRoom" });
+	if (player === "player1") {
 		connections.player1 = ws;
+		await sendMessage(connections.player1, message);
 		state.stage = "waitingRoom";
-		connections.player1.send(JSON.stringify({ stage: "waitingRoom" }));
-		handleNewPlayers("player1");
 		trackingObject.p1Ready = true;
-	} else if (connections.player2 === null) {
-		state.stage = "waitingRoom";
+		handleNewPlayers("player1");
+	} else if (player === "player2") {
 		connections.player2 = ws;
+		await sendMessage(connections.player2, message);
+		state.stage = "waitingRoom";
+		trackingObject.p1Ready = true;
 		handleNewPlayers("player2");
-		connections.player2.send(JSON.stringify({ stage: "waitingRoom" }));
-		trackingObject.p2Ready = true;
+	}
+}
+wss.on("connection", async function (ws) {
+	if (connections.player1 === null) {
+		await handleInitialConnection("player1", ws);
+	} else if (connections.player2 === null) {
+		await handleInitialConnection("player2", ws);
 	} else {
 		console.error("Too many players");
 	}
-	if (!connections.player1 || !connections.player2) {
-		if (connections.player1) {
-			connections.player1.send(JSON.stringify({ stage: "waitingRoom" }));
-		}
-		if (connections.player2) {
-			connections.player2.send(JSON.stringify({ stage: "waitingRoom" }));
-		}
-	}
 	if (connections.player1 && connections.player2) {
 		if (!testConsts.skipIntro) {
-			let startTime = new Date();
-			state.startTime = startTime.toISOString();
-			state = resetStateonConnection(state);
-			mousePos = resetMouseState(mousePos);
-			trackingObject = deepCopy(trackingObjectCopy);
-			dataArray = [];
-			mouseArray = [];
-			state.stage = "intro";
-			state.RDK.coherence = shuffle(expValues.coherence);
-			connections.player1.send(
-				JSON.stringify({ stage: "intro", type: "consentForm" })
-			);
-			connections.player2.send(
-				JSON.stringify({ stage: "intro", type: "consentForm" })
-			);
+			let returnData = await handleExpStart(state, dataArray);
+			state = returnData.state;
+			dataArray = returnData.dataArray;
+			trackingObject = returnData.trackingObject;
 		} else if (testConsts.skipIntro) {
 			trackingObject.p1SkipReady = true;
 			trackingObject.p2SkipReady = true;
@@ -1782,7 +1819,7 @@ wss.on("connection", function (ws) {
 		}
 	}
 
-	ws.on("message", function message(m) {
+	ws.on("message", async function message(m) {
 		const data = JSON.parse(m.toString("utf-8"));
 		switch (data.stage) {
 			case "intro":
@@ -1809,10 +1846,62 @@ wss.on("connection", function (ws) {
 				}
 				break;
 			case "end":
-				if (connections.player1 === ws) {
-					connections.player1 = null;
-				} else if (connections.player2 === ws) {
-					connections.player2 = null;
+				switch (data.type) {
+					case "pageReached":
+						if (ws === connections.player1) {
+							trackingObject.p1endPageReached = true;
+						} else if (ws === connections.player2) {
+							trackingObject.p2endPageReached = true;
+						}
+						if (
+							trackingObject.p1endPageReached &&
+							trackingObject.p2endPageReached
+						) {
+							let returnData = await handleExpEnd(state, dataArray);
+							state = returnData.state;
+							dataArray = returnData.dataArray;
+							trackingObject = returnData.trackingObject;
+							setTimeout(() => {
+								// Check if player1 connection is still valid and open
+								if (connections.player1) {
+									try {
+										connections.player1.close();
+									} catch (e) {
+										console.error("Error closing player1 connection:", e);
+									} finally {
+										connections.player1 = null;
+									}
+								}
+
+								// Check if player2 connection is still valid and open
+								if (connections.player2) {
+									try {
+										connections.player2.close();
+									} catch (e) {
+										console.error("Error closing player2 connection:", e);
+									} finally {
+										connections.player2 = null;
+									}
+								}
+							}, 300000); // 5 minutes
+						}
+						break;
+					case "redirect":
+						if (ws === connections.player1) {
+							if (connections.player1 !== null) {
+								connections.player1.close();
+								connections.player1 = null;
+							} else {
+								connections.player1 = null;
+							}
+						} else if (ws === connections.player2) {
+							if (connections.player2 !== null) {
+								connections.player2.close();
+								connections.player2 = null;
+							} else {
+								connections.player2 = null;
+							}
+						}
 				}
 		}
 	});
@@ -1820,6 +1909,11 @@ wss.on("connection", function (ws) {
 	ws.on("close", () => {
 		if (connections.player1 === ws) removeConnection("player1");
 		else if (connections.player2 === ws) removeConnection("player2");
+		if (connections.player1 === null && connections.player2 === null) {
+			state = resetStateonConnection(state);
+			dataArray = resetDataArray(dataArray);
+			trackingObject = deepCopy(trackingObjectCopy);
+		}
 	});
 
 	ws.on("error", console.error);

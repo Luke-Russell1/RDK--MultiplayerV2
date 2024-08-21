@@ -14,10 +14,10 @@ const consentFormHTML = `
 </div>
 <div  align="left">
 <p>
-In this task, you will be asked to complete 50 trials of a computer-based task. This will involve repeated decisions between two options. The task will take approximately 10 minutes to complete.
-You are free to stop the study at any time, and your data will not be used if you choose to do so with no penalty. If you have any concerns that arise from the 
+In this task, you will be asked to complete 60 trials of a computer-based task. This will involve repeated decisions between two options, both by yourself and with a partner. The task will take approximately 30 minutes to complete.
+You are free to stop the study at any time, and your data will not be used if you choose to do so. If you have any concerns that arise from the 
 task, please email the Principal Researcher Luke Russell at: LRussell1@uon.edu.au. <br>
-<b> Please do not refresh or resize the browser during the experiment, doing so will cause a loss of progress and invalidate the data. </b> <br>
+<b> Please do not refresh or resize the browser during the experiment, doing so will cause a loss of progress, invalidation of data, and may result in a loss of compensation </b> <br>
 Please read the following statements before proceeding.
 </p>
 <p>1. I consent to participate in this project. The purpose of this research is to integrate the findings between response-time based methodologies and experimental measures of decision making.</p>
@@ -38,7 +38,7 @@ Please read the following statements before proceeding.
 const participantInfoHTML = `
  <div class = "participantInfo" align = "center"> 
 		<h2>Participant Information</h2>
-        <p> Please provide your age, gender and platform before proceeding. Please consider your response carefully </p>
+        <p> Please provide your age, gender and platform before proceeding. Please consider your response carefully and make sure to select the correct platform (either SONA or Prolific) that you entered the experiment from. </p>
         <form id="participantForm">
             <label for="age">Age:</label>    
             <input type="number" id="age" placeholder="Age" required/> <br>    

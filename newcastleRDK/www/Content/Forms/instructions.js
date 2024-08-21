@@ -13,6 +13,9 @@ const instructionsHTML = `
  in the same direction, to very difficult, where only a few dots are moving in the same direction, responding as quickly and accurately as you can.</p>
 <p> There are two blocks consisting of 30 trials 6 seconds in length, 60 trials in total. In one block you will perform this by yourself, and in the other you will be paired with another participant. <br>
 The experiment will take roughly 25 minutes to complete. </p>
+<p> During the experiment you will encounter several instructions pages where you can take your time to read it, requiring your to press enter to continue. <br>
+While we encourage you to take your time to read and understand these instructions, we also encourage you to consider the other person completing the experiment with you <br>
+and respect their time.  </p>
 <p> We appreciate your participation</p>
 <p> Please press enter to view the practice instructions </p>
 </div>
@@ -53,8 +56,7 @@ Initially, the trials will be 12 seconds with a 12 second break. Later it will s
 Here, you will use the mouse to select a difficulty level by clicking on it, then responding with either "Z" for left or "X" for right when you think you know which direction the dots are moving. <br>
 If you respond incorrectly, there will be a 500ms delay before you can respond again. <br>
 Please try and complete each task as quickly and accurately as possible. <br>
-Please enter to begin the block
-</p>
+Please press enter to begin the practice block.
 </div>
 `;
 function loadPracticeInstructions(targetElementId, ws) {
@@ -225,21 +227,23 @@ Why do people deviate from this strategy, and how do they progress to this strat
 different for those operating by themselves versus with a partner? These are the questions and processes we wish to investigate. <br>
 If you would like more information or have any questions, please contact Luke Russell at: 
  LRussell1@uon.edu.au </p>
-<p> Thank you for your time and participation </p>
-<p> Please press enter to complete the experiment and return to either Prolific or SONA</p>
+<p> Thank you for your time and participation. This connection will close in 5 minutes. </p>
+<p> Please press enter to complete the experiment and return to either Prolific or SONA before this occurs</p>
 </div>`;
 
 let endGameHandler = null;
 function loadEndGame(targetElementId, ws, platform) {
 	const targetElement = document.getElementById(targetElementId);
+	let platform = platform;
 	if (targetElement) {
 		targetElement.innerHTML = endGameHTML;
+		ws.send(JSON.stringify({ stage: "end", type: "pageReached" }));
 		if (endGameHandler) {
 			document.removeEventListener("keydown", endGameHandler);
 		}
 		endGameHandler = function (event) {
 			if (event.key === "Enter") {
-				handleRedirect(ws);
+				handleRedirect(ws, platform);
 			}
 		};
 		document.addEventListener("keydown", endGameHandler);
@@ -252,10 +256,10 @@ function handleRedirect(ws, platform) {
 		window.location.replace(
 			"https://app.prolific.com/submissions/complete?cc=CHVSXHS4"
 		);
-		ws.send(JSON.stringify({ stage: "end" }));
+		ws.send(JSON.stringify({ stage: "end", type: "redirect" }));
 	} else {
 		window.location.replace("https://www.newcastle.edu.au/");
-		ws.send(JSON.stringify({ stage: "end" }));
+		ws.send(JSON.stringify({ stage: "end", type: "redirect" }));
 	}
 }
 export {
