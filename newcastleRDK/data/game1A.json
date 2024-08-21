@@ -1,0 +1,434 @@
+[
+  {
+    "startTime": "2024-08-21T13:27:29.544Z",
+    "endTime": "",
+    "gameNo": 1,
+    "stage": "practice",
+    "block": "sep",
+    "player1": {
+      "id": 0,
+      "age": 2,
+      "gender": "Male",
+      "consent": true,
+      "platform": "SONA"
+    },
+    "player2": {
+      "id": 0,
+      "age": 2,
+      "gender": "Male",
+      "consent": true,
+      "platform": "SONA"
+    },
+    "trialNo": 0,
+    "RDK": {
+      "mostRecentChoice": "",
+      "choice": [],
+      "choiceTime": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "completed": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "correct": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "attempts": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "playerAttempts": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "player": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "coherence": [
+        0.3,
+        0.7,
+        0.1,
+        0.8,
+        0.2,
+        0.9,
+        0.6,
+        0.4
+      ],
+      "direction": [
+        "left",
+        "right",
+        "left",
+        "left",
+        "right",
+        "left",
+        "left",
+        "right"
+      ],
+      "incorrectDirection": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "completionTime": 0,
+      "reactionTime": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "totalReactionTIme": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "timeStamp": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "P1RDK": {
+      "mostRecentChoice": "3",
+      "choice": [
+        "0",
+        "1",
+        "2",
+        "7",
+        "4",
+        "3"
+      ],
+      "choiceTime": [
+        1136,
+        530,
+        509,
+        502,
+        554,
+        0,
+        0,
+        949
+      ],
+      "completed": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        true
+      ],
+      "correct": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "attempts": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        2
+      ],
+      "playerAttempts": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "player": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "coherence": [
+        0.3,
+        0.7,
+        0.1,
+        0.8,
+        0.2,
+        0.9,
+        0.6,
+        0.4
+      ],
+      "direction": [
+        "left",
+        "right",
+        "left",
+        "left",
+        "right",
+        "left",
+        "left",
+        "right"
+      ],
+      "incorrectDirection": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [
+          "right"
+        ]
+      ],
+      "completionTime": 0,
+      "reactionTime": [
+        [
+          827
+        ],
+        [
+          459
+        ],
+        [
+          366
+        ],
+        [
+          459
+        ],
+        [
+          492
+        ],
+        [],
+        [],
+        [
+          393,
+          382
+        ]
+      ],
+      "totalReactionTIme": [
+        [
+          827
+        ],
+        [
+          459
+        ],
+        [
+          366
+        ],
+        [
+          459
+        ],
+        [
+          492
+        ],
+        [],
+        [],
+        [
+          393,
+          1283
+        ]
+      ],
+      "timeStamp": [
+        1139,
+        2498,
+        3468,
+        7624,
+        6627,
+        0,
+        0,
+        4787
+      ]
+    },
+    "P2RDK": {
+      "mostRecentChoice": "",
+      "choice": [],
+      "choiceTime": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "completed": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "correct": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "attempts": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "playerAttempts": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "player": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "coherence": [
+        0.3,
+        0.7,
+        0.1,
+        0.8,
+        0.2,
+        0.9,
+        0.6,
+        0.4
+      ],
+      "direction": [
+        "left",
+        "right",
+        "left",
+        "left",
+        "right",
+        "left",
+        "left",
+        "right"
+      ],
+      "incorrectDirection": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "completionTime": 0,
+      "reactionTime": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "totalReactionTIme": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "timeStamp": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  }
+]

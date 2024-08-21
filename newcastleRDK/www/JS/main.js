@@ -1,4 +1,7 @@
-import { loadWaitingRoom } from "../Content/Forms/waitingRoom.js";
+import {
+	loadWaitingRoom,
+	loadWaitingExpEndRoom,
+} from "../Content/Forms/waitingRoom.js";
 import { loadConsentForm } from "../Content/Forms/consentForm.js";
 import { loadInstructions } from "../Content/Forms/instructions.js";
 import Game from "./Game.js";
@@ -17,6 +20,9 @@ document.addEventListener("DOMContentLoaded", () => {
 		switch (message.stage) {
 			case "waitingRoom":
 				loadWaitingRoom("main", ws);
+				break;
+			case "waitingExpEndRoom":
+				loadWaitingExpEndRoom("main", ws);
 				break;
 			case "intro":
 				switch (message.type) {

@@ -38,6 +38,7 @@ const connections: {
 	player1: null,
 	player2: null,
 };
+let connectionArray: Array<WebSocket> = [];
 
 type Player = {
 	id: number;
@@ -530,15 +531,15 @@ async function writeData(data: any, suffix: "A" | "B") {
 		// Convert the data object to a JSON string
 		const dataString = JSON.stringify(data, null, 2); // Indent JSON for readability
 
-		// Define the filename and path
+		// Define the filename and path using __dirname
 		const filename = `game${state.gameNo}${suffix}.json`;
-		const path = `${expValues.dataPath}${filename}`;
+		const filePath = path.join(__dirname, expValues.dataPath, filename);
 
 		// Write the JSON string to a file
-		fs.writeFileSync(path, dataString, "utf8");
+		fs.writeFileSync(filePath, dataString, "utf8");
 	} catch (error) {
 		// Handle errors (e.g., file system errors)
-		console.error(`Failed to write data to ${expValues.dataPath}:`, error);
+		console.error(`Failed to write data`, error);
 	}
 }
 
@@ -1185,7 +1186,6 @@ async function startPracticeBreak(block: string) {
 	Same as startBreak but for the practice trials.
 	*/
 	saveTrialData(state, block);
-
 	state.trialNo += 1; // Increment trial number here
 	if (
 		(block === "sep" && state.trialNo < 5) ||
@@ -1194,24 +1194,25 @@ async function startPracticeBreak(block: string) {
 		// Calculate break info for each player
 		let p1BreakInfo = calculateBreakInfo(state, "player1");
 		let p2BreakInfo = calculateBreakInfo(state, "player2");
+		const p1Message = JSON.stringify({
+			stage: "practice",
+			block: block,
+			type: "break",
+			data: p1BreakInfo,
+		});
+		const p2Message = JSON.stringify({
+			stage: "practice",
+			block: block,
+			type: "break",
+			data: p2BreakInfo,
+		});
 
 		// Send break message after incrementing trialNo and scheduling next trial
-		connections.player1?.send(
-			JSON.stringify({
-				stage: "practice",
-				block: block,
-				type: "break",
-				data: p1BreakInfo,
-			})
-		);
-		connections.player2?.send(
-			JSON.stringify({
-				stage: "practice",
-				block: block,
-				type: "break",
-				data: p2BreakInfo,
-			})
-		);
+		await Promise.all([
+			sendMessage(connections.player1!, p1Message),
+			sendMessage(connections.player2!, p2Message),
+		]);
+
 		if (state.trialNo <= 7) {
 			setTimeout(() => {
 				handlePracticeTrials(practiceTrialsDirections, block);
@@ -1577,10 +1578,6 @@ async function practiceCollabMessaging(
 			break;
 	}
 }
-async function practiceMessaging(data: any, ws: WebSocket, connections: any) {
-	await practiceSepMessaging(data, ws, connections);
-	await practiceCollabMessaging(data, ws, connections);
-}
 function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
 	switch (data.type) {
 		case "instructionsComplete":
@@ -1743,6 +1740,31 @@ function gameSepMessaging(data: any, ws: WebSocket, connections: any) {
 			break;
 	}
 }
+async function transferConnection(connectionArray: Array<WebSocket>) {
+	/*
+	Transfers the connection from the waiting room to the game when spots become available
+	*/
+	try {
+		if (connectionArray.length > 1) {
+			if (connections.player1 === null && connections.player2 === null) {
+				connections.player1 = connectionArray[0];
+				await handleInitialConnection("player1", connections.player1);
+				connections.player2 = connectionArray[1];
+				await handleInitialConnection("player2", connections.player2);
+				connectionArray.splice(0, 2);
+				let returnedData = await handleExpStart(state, dataArray);
+				state = returnedData.state;
+				dataArray = returnedData.dataArray;
+				trackingObject = returnedData.trackingObject;
+			}
+		}
+	} catch (error) {
+		console.error(
+			"Error during connection transfer or experiment start:",
+			error
+		);
+	}
+}
 async function handleExpEnd(state: State, dataArray: any) {
 	/*
 	Handles the end of the experiment. This is called when the players have completed the game trials. 
@@ -1793,13 +1815,21 @@ async function handleInitialConnection(
 		handleNewPlayers("player2");
 	}
 }
+async function handleExtraConnection(ws: WebSocket) {
+	/*
+	Handles the extra connection of the player. This is called when the player connects to the server. 
+	*/
+	let message = JSON.stringify({ stage: "waitingExpEndRoom" });
+	connectionArray.push(ws);
+	await sendMessage(ws, message);
+}
 wss.on("connection", async function (ws) {
 	if (connections.player1 === null) {
 		await handleInitialConnection("player1", ws);
 	} else if (connections.player2 === null) {
 		await handleInitialConnection("player2", ws);
 	} else {
-		console.error("Too many players");
+		await handleExtraConnection(ws);
 	}
 	if (connections.player1 && connections.player2) {
 		if (!testConsts.skipIntro) {
@@ -1912,6 +1942,7 @@ wss.on("connection", async function (ws) {
 			state = resetStateonConnection(state);
 			dataArray = resetDataArray(dataArray);
 			trackingObject = deepCopy(trackingObjectCopy);
+			transferConnection(connectionArray);
 		}
 	});
 
