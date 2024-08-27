@@ -76,7 +76,6 @@ export default class Game {
 		this.rtTimestamp = Date.now();
 		this.totalRTTimestamp = Date.now();
 		this.newDirectionTimeout = null;
-		document.addEventListener;
 		/*
         Below controls the images that are displayed on the canvas.
         This will be on a div that corresponds to a cetain difficulty level.
@@ -118,7 +117,7 @@ export default class Game {
 			x: 0,
 			y: 0,
 		};
-		this.ws.onmessage = (event) => {
+		this.ws.onmessage = async (event) => {
 			let data = JSON.parse(event.data);
 			console.log(data);
 			switch (data.stage) {
@@ -143,10 +142,6 @@ export default class Game {
 							this.dotTimestamp = Date.now();
 							this.currentlyCompleting = true;
 							this.removeOtherDivs(this.divs.uncompleted, data.data);
-							this.responseHandler = this.addResponseHandler(
-								data.data,
-								this.state
-							);
 							this.generateDotMotionAperture(
 								data.data,
 								this.divs.uncompleted,
@@ -171,6 +166,7 @@ export default class Game {
 							break;
 						case "state":
 							this.state = this.updateState(data.data, data.block);
+							this.checkUpdatedState(this.state);
 							break;
 						case "playerChoice":
 							this.divs = this.handleCompletedImages(data.data, this.divs);
@@ -264,6 +260,7 @@ export default class Game {
 							break;
 						case "state":
 							this.state = this.updateState(data.data, data.block);
+							this.checkUpdatedState(state);
 							break;
 						case "playerChoice":
 							this.divs = this.handleCompletedImages(data.data, this.divs);
@@ -444,7 +441,7 @@ export default class Game {
 	beginBreak(blockType, block, data) {
 		if (blockType === "game") {
 			if (block === "sep") {
-				document.removeEventListener("keydown", this.responseHandler);
+				document.removeEventListener("key", this.responseHandler);
 				// Create a div element for the break overlay
 				const breakDiv = document.createElement("div");
 				let breakText = "";
@@ -477,7 +474,7 @@ export default class Game {
 				this.stopAnimation(); // Assuming this method stops some animation
 				this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); // Clear the canvas
 				this.clearImageDivs(); // Clear the image divs
-				document.removeEventListener("keydown", this.responseHandler);
+				document.removeEventListener("keyup", this.responseHandler);
 				let breakText = "";
 				breakText = `<div align="center">
 				<p> 
@@ -514,7 +511,7 @@ export default class Game {
 				this.stopAnimation(); // Assuming this method stops some animation
 				this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); // Clear the canvas
 				this.clearImageDivs(); // Clear the image divs
-				document.removeEventListener("keydown", this.responseHandler);
+				document.removeEventListener("keyup", this.responseHandler);
 				let breakText = "";
 
 				breakText = `<div align="center">
@@ -550,7 +547,7 @@ export default class Game {
 					this.stopAnimation(); // Assuming this method stops some animation
 					this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); // Clear the canvas
 					this.clearImageDivs(); // Clear the image divs
-					document.removeEventListener("keydown", this.responseHandler);
+					document.removeEventListener("keyup", this.responseHandler);
 					let breakText = "";
 					breakText = `<div align="center">
 				<p> 
@@ -587,7 +584,7 @@ export default class Game {
 					this.stopAnimation(); // Assuming this method stops some animation
 					this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); // Clear the canvas
 					this.clearImageDivs(); // Clear the image divs
-					document.removeEventListener("keydown", this.responseHandler);
+					document.removeEventListener("keyup", this.responseHandler);
 					let breakText = "";
 					breakText = `<div align="center">
 					<p> 
@@ -621,7 +618,7 @@ export default class Game {
 					this.stopAnimation(); // Assuming this method stops some animation
 					this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); // Clear the canvas
 					this.clearImageDivs(); // Clear the image divs
-					document.removeEventListener("keydown", this.responseHandler);
+					document.removeEventListener("keyup", this.responseHandler);
 					let breakText = "";
 					breakText = `<div align="center">
 					<p> 
@@ -661,7 +658,7 @@ export default class Game {
 			this.stopAnimation();
 			this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 			this.clearImageDivs();
-			document.removeEventListener("keydown", this.responseHandler);
+			document.removeEventListener("keyup", this.responseHandler);
 			let breakText = "";
 			breakText = `<div align="center">
 				<p> 
@@ -695,7 +692,7 @@ export default class Game {
 			return breakDiv;
 		} else if (stage === "game") {
 			this.stopAnimation();
-			document.removeEventListener("keydown", this.responseHandler);
+			document.removeEventListener("keyup", this.responseHandler);
 			this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 			this.clearImageDivs();
 			let breakText = "";
@@ -818,13 +815,27 @@ export default class Game {
 				);
 			}
 		};
-		document.addEventListener("keydown", responseHandler);
+		document.addEventListener("keydown", responseHandler, { once: true });
 		// Optional: return the handler function in case you need to remove it later
 		return responseHandler;
 	}
+	checkUpdatedState(state, block) {
+		if (block === "sep") {
+			return;
+		} else if (block === "collab") {
+			if (!this.currentlyCompleting) {
+				for (let choice in state.RDK.choice) {
+					if (this.divs.uncompleted.includes(choice)) {
+						this.divs = this.handleCompletedImages(choice, this.divs);
+						this.restoreImages(this.divs);
+					}
+				}
+			}
+		}
+	}
 	handleCompletedImages(ID, divObj) {
 		// Check if the ID exists in divObj.uncompleted
-		document.removeEventListener("keydown", this.responseHandler);
+		document.removeEventListener("keyup", this.responseHandler);
 		let completedDiv = divObj.uncompleted.find((div) => div.id === ID);
 		if (!completedDiv) {
 			return divObj; // Return the original divObj without any changes
@@ -897,7 +908,7 @@ export default class Game {
 	}
 
 	removeEventListeners(div) {
-		document.removeEventListener("keydown", this.responseHandler);
+		document.removeEventListener("keyup", this.responseHandler);
 		if (div && div.parentNode) {
 			div.removeEventListener("mouseover", this.mouseOverHandler);
 			div.removeEventListener("mouseout", this.mouseOutHandler);
@@ -923,13 +934,11 @@ export default class Game {
 	drawNewDirection(Index, divlist, expConsts, direction) {
 		this.stopAnimation();
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-		document.removeEventListener("keydown", this.responseHandler);
-		this.responseHandler = null;
+		document.removeEventListener("keyup", this.responseHandler);
 
 		this.drawTimeout = setTimeout(() => {
 			this.dotTimestamp = Date.now();
 			this.generateDotMotionAperture(Index, divlist, expConsts, direction);
-			this.responseHandler = this.addResponseHandler(Index);
 		}, expConsts.pauseDuration);
 	}
 	drawDot(x, y) {
@@ -1096,6 +1105,7 @@ export default class Game {
 	}
 	generateDotMotionAperture(divID, divlist, expConsts, direction) {
 		// Clear previous drawings
+		this.responseHandler = this.addResponseHandler(divID);
 		this.currentlyCompleting = true;
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 		this.ctx.setzIndex = 1;
@@ -1157,9 +1167,9 @@ export default class Game {
 
 		// Remove response handler if exists
 		if (this.responseHandler) {
-			document.removeEventListener("keydown", this.responseHandler);
+			document.removeEventListener("keyup", this.responseHandler);
 		}
-		document.removeEventListener("keydown", this.responseHandler);
+		document.removeEventListener("keyup", this.responseHandler);
 		document.removeEventListener("mouseover", this.mouseOverHandler);
 		document.removeEventListener("mouseout", this.mouseOutHandler);
 		this.ws.send(

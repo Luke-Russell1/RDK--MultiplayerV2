@@ -764,6 +764,7 @@ async function checkResponse(
 		case "collab":
 			if (player === "player1") {
 				if (state.P1RDK.mostRecentChoice !== id) {
+					break;
 				} else {
 					if (state.RDK.direction[id] === data) {
 						const message = JSON.stringify({
@@ -797,6 +798,7 @@ async function checkResponse(
 				}
 			} else if (player === "player2") {
 				if (state.P2RDK.mostRecentChoice !== id) {
+					break;
 				} else {
 					if (state.RDK.direction[id] === data) {
 						const message = JSON.stringify({
@@ -887,7 +889,7 @@ async function checkResponse(
 	}
 }
 function resetStateonConnection(data: State) {
-	let gameNo = data.gameNo + 1;
+	let gameNo = data.gameNo;
 	let newState = Object.assign({}, baseState);
 	newState.gameNo = gameNo;
 	return newState;
@@ -1372,8 +1374,8 @@ async function handleIntroductionMessaging(
 					message: "beginGame",
 				});
 				await Promise.all([
-					sendMessage(connections.player1, message),
-					sendMessage(connections.player2, message),
+					sendMessage(connections.player1!, message),
+					sendMessage(connections.player2!, message),
 				]);
 				state.stage = "practice";
 				state.block = "sep";
@@ -1569,7 +1571,7 @@ async function practiceCollabMessaging(
 			break;
 	}
 }
-function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
+async function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
 	switch (data.type) {
 		case "instructionsComplete":
 			if (connections.player1 === ws) {
@@ -1579,7 +1581,7 @@ function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
 			}
 			if (trackingObject.p1TrialReady && trackingObject.p2TrialReady) {
 				state = resetState(state, baseRDK, true);
-				beginGame(
+				await beginGame(
 					trialsDirections[state.trialNo],
 					state,
 					data.stage,
@@ -1592,7 +1594,7 @@ function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
 			break;
 		case "difficulty":
 			if (ws === connections.player1) {
-				handleRDKSelection(
+				await handleRDKSelection(
 					"player1",
 					data.difficulty,
 					data.rt,
@@ -1601,7 +1603,7 @@ function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
 					data.block
 				);
 			} else if (ws === connections.player2) {
-				handleRDKSelection(
+				await handleRDKSelection(
 					"player2",
 					data.difficulty,
 					data.rt,
@@ -1632,7 +1634,7 @@ function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
 			break;
 		case "response":
 			if (ws === connections.player1) {
-				checkResponse(
+				await checkResponse(
 					"player1",
 					data.data,
 					data.index,
@@ -1644,7 +1646,7 @@ function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
 				);
 			}
 			if (ws === connections.player2) {
-				checkResponse(
+				await checkResponse(
 					"player2",
 					data.data,
 					data.index,
@@ -1929,9 +1931,7 @@ wss.on("connection", async function (ws) {
 		if (connections.player1 === ws) removeConnection("player1");
 		else if (connections.player2 === ws) removeConnection("player2");
 		if (connections.player1 === null && connections.player2 === null) {
-			state = resetStateonConnection(state);
-			dataArray = resetDataArray(dataArray);
-			trackingObject = deepCopy(trackingObjectCopy);
+			state.gameNo += 1;
 			transferConnection(connectionArray);
 		}
 	});

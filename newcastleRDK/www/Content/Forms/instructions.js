@@ -39,7 +39,7 @@ function loadInstructions(targetElementId, ws) {
 			};
 
 			// Add the event listener
-			document.addEventListener("keyup", keyPressHandler);
+			document.addEventListener("keyup", keyPressHandler, { once: true });
 			instructionEventListenerAttached = true;
 		}
 	} else {
@@ -81,7 +81,7 @@ function loadPracticeInstructions(targetElementId, ws) {
 			}
 		};
 
-		document.addEventListener("keyup", keyPressHandler);
+		document.addEventListener("keyup", keyPressHandler, { once: true });
 	} else {
 		console.error(`Target element with ID '${targetElementId}' not found.`);
 	}
@@ -139,7 +139,7 @@ function loadSepInstructions(targetElementId, ws) {
 		};
 
 		// Add the event listener
-		document.addEventListener("keyup", sepInstructionsHandler);
+		document.addEventListener("keyup", sepInstructionsHandler, { once: true });
 	} else {
 		console.error(`Target element with ID '${targetElementId}' not found.`);
 	}
