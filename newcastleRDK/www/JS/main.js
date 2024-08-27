@@ -6,31 +6,12 @@ import { loadConsentForm } from "../Content/Forms/consentForm.js";
 import { loadInstructions } from "../Content/Forms/instructions.js";
 import Game from "./Game.js";
 
+let id = "";
+let platform = "";
 document.addEventListener("DOMContentLoaded", () => {
 	const wsURL = `ws://${window.location.host}${window.location.pathname}coms`;
 	const ws = new WebSocket(wsURL);
 	console.log("Connecting to the server...");
-	const queryParams = new URLSearchParams(window.location.search);
-	let id = "";
-	let origin = "";
-	if (queryParams.has("survey_code")) {
-		id = queryParams.get("survey_code");
-	} else {
-		id = "";
-	}
-	if (queryParams.has("origin")) {
-		origin = queryParams.get("origin");
-	} else {
-		origin = "";
-	}
-	ws.send(
-		JSON.stringify({
-			stage: "intro",
-			type: "participantInfo",
-			id: id,
-			origin: origin,
-		})
-	);
 	let game = null;
 	const defaultWsOnMessage = (event) => {
 		let message = JSON.parse(event.data);
@@ -66,6 +47,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	ws.onopen = () => {
 		console.log("Connected to the server");
+		const queryParams = new URLSearchParams(window.location.search);
+		console.log(queryParams);
+		if (queryParams.has("survey_code")) {
+			id = queryParams.get("survey_code");
+		} else {
+			id = "";
+		}
+		if (queryParams.has("origin")) {
+			origin = queryParams.get("origin");
+		} else {
+			origin = "";
+		}
+		let infoData = { id: id, origin: origin };
+		ws.send(
+			JSON.stringify({
+				stage: "intro",
+				type: "participantInfo",
+				data: infoData,
+			})
+		);
 	};
 
 	ws.onmessage = defaultWsOnMessage;

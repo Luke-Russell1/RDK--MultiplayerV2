@@ -41,7 +41,7 @@ const connections: {
 let connectionArray: Array<WebSocket> = [];
 
 type Player = {
-	id: number;
+	id: any;
 	age: number;
 	gender: string;
 	consent: boolean;
@@ -151,14 +151,14 @@ let state: State = {
 	stage: "waitingRoom",
 	block: "sep",
 	player1: {
-		id: 0,
+		id: "",
 		age: 0,
 		gender: "",
 		consent: false,
 		platform: "",
 	},
 	player2: {
-		id: 0,
+		id: "",
 		age: 0,
 		gender: "",
 		consent: false,
@@ -1331,6 +1331,7 @@ async function handleIntroductionMessaging(
 	connections: any,
 	data: any
 ) {
+	console.log(data);
 	switch (type) {
 		case "consent":
 			if (ws === connections.player1) {
@@ -1354,6 +1355,7 @@ async function handleIntroductionMessaging(
 				state.player1.id = data.id;
 				state.player1.platform = data.platform;
 			}
+			break;
 		case "completedInstructions":
 			if (connections.player1 === ws) {
 				trackingObject.P1InstructionsFinished = true;
@@ -1837,6 +1839,7 @@ wss.on("connection", async function (ws) {
 
 	ws.on("message", async function message(m) {
 		const data = JSON.parse(m.toString("utf-8"));
+		console.log(data);
 		switch (data.stage) {
 			case "intro":
 				handleIntroductionMessaging(data.type, ws, connections, data.data);
