@@ -236,7 +236,6 @@ function loadEndGame(targetElementId, ws, id, platform) {
 	const targetElement = document.getElementById(targetElementId);
 	if (targetElement) {
 		targetElement.innerHTML = endGameHTML;
-		ws.send(JSON.stringify({ stage: "end", type: "pageReached" }));
 		if (endGameHandler) {
 			document.removeEventListener("keydown", endGameHandler);
 		}
@@ -255,10 +254,8 @@ function handleRedirect(ws, platform) {
 		window.location.replace(
 			"https://app.prolific.com/submissions/complete?cc=CHVSXHS4"
 		);
-		ws.send(JSON.stringify({ stage: "end", type: "redirect" }));
 	} else {
 		window.location.replace("https://www.newcastle.edu.au/");
-		ws.send(JSON.stringify({ stage: "end", type: "redirect" }));
 	}
 }
 export {
