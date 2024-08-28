@@ -111,7 +111,7 @@ const expValues = {
 	block: ["sep", "collab"],
 	breakLength: 6,
 	dataPath: "/data/",
-	blockLength: 30,
+	blockLength: 15,
 	practiceTrials: 10,
 	practiceLength1: 12,
 	practiceLength2: 6,
@@ -518,7 +518,9 @@ async function writeData(data: any, suffix: "A" | "B") {
 		const dataString = JSON.stringify(data, null, 2); // Indent JSON for readability
 
 		// Define the filename and path using __dirname
-		const filename = `game${state.gameNo}${suffix}.json`;
+		const platform = `${state.player1.platform}${state.player2.platform}`;
+		const dateString = new Date();
+		const filename = `game${platform}${dateString.toISOString()}.json`;
 		const filePath = path.join(expValues.dataPath, filename);
 
 		// Write the JSON string to a file
@@ -898,26 +900,6 @@ function resetDataArray(data: Array<any>) {
 	let newData: Array<any> = [];
 	return newData;
 }
-function resetMouseState(data: mouseTracking) {
-	let newMouse = Object.assign({}, data);
-	newMouse.player1 = {
-		trialNo: 0,
-		x: 0,
-		y: 0,
-		stage: "",
-		block: "",
-		timestamp: 0,
-	};
-	newMouse.player2 = {
-		trialNo: 0,
-		x: 0,
-		y: 0,
-		stage: "",
-		block: "",
-		timestamp: 0,
-	};
-	return newMouse;
-}
 
 function resetState(state: State, baseRDK: rdk, newBlock: boolean) {
 	/*
@@ -1032,6 +1014,7 @@ async function checkBlockCompleted(
 			let endTime = new Date();
 			state.endTime = endTime.toISOString();
 			await writeData(dataArray, "B");
+			process.exit(0);
 			return true;
 		} else {
 			return false;
