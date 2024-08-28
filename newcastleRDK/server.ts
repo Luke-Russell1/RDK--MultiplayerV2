@@ -111,7 +111,7 @@ const expValues = {
 	block: ["sep", "collab"],
 	breakLength: 6,
 	dataPath: "/data/",
-	blockLength: 15,
+	blockLength: 10,
 	practiceTrials: 10,
 	practiceLength1: 12,
 	practiceLength2: 6,

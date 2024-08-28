@@ -21,8 +21,9 @@ export default class Game {
 		this.containerId = containerId;
 		this.id = id;
 		this.platform = platform;
-		console.log(this.id, this.platform);
 		this.currentlyCompleting = false;
+		this.allowMessage = false;
+		console.log(this.allowMessage);
 		this.ws.send(
 			JSON.stringify({
 				stage: this.stage,
@@ -46,9 +47,11 @@ export default class Game {
 		this.mouseOverHandler = this.mouseOverHandler.bind(this);
 		this.mouseOutHandler = this.mouseOutHandler.bind(this);
 		this.clickHandler = this.clickHandler.bind(this);
+		this.handleKeyResponse = this.handleKeyResponse.bind(this);
 		this.drawTimeout = null;
 		this.generateDotMotionAperture = this.generateDotMotionAperture.bind(this);
 		this.responseHandler = null;
+		this.divCurrentlyCompleting = "";
 		this.lastExecution = 0;
 		this.throttleDelay = 25;
 		this.expConsts = {
@@ -117,8 +120,11 @@ export default class Game {
 			x: 0,
 			y: 0,
 		};
+
+		document.addEventListener("keydown", this.handleKeyResponse);
 		this.ws.onmessage = async (event) => {
 			let data = JSON.parse(event.data);
+			console.log(this.allowMessage);
 			console.log(data);
 			switch (data.stage) {
 				case "practice":
@@ -231,10 +237,6 @@ export default class Game {
 							this.dotTimestamp = Date.now();
 							this.currentlyCompleting = true;
 							this.removeOtherDivs(this.divs.uncompleted, data.data);
-							this.responseHandler = this.addResponseHandler(
-								data.data,
-								this.state
-							);
 							this.generateDotMotionAperture(
 								data.data,
 								this.divs.uncompleted,
@@ -322,6 +324,7 @@ export default class Game {
 	displayBlockInstructions(stage, block) {
 		this.stage = stage;
 		this.block = block;
+		this.allowMessage = false;
 		if (block === "sep") {
 			loadSepInstructions("main", this.ws);
 		} else if (block === "collab") {
@@ -439,9 +442,10 @@ export default class Game {
 		}
 	}
 	beginBreak(blockType, block, data) {
+		this.allowMessage = false;
 		if (blockType === "game") {
 			if (block === "sep") {
-				document.removeEventListener("key", this.responseHandler);
+				document.removeEventListener("keyup", this.responseHandler);
 				// Create a div element for the break overlay
 				const breakDiv = document.createElement("div");
 				let breakText = "";
@@ -654,6 +658,7 @@ export default class Game {
 	}
 
 	displayBlockBreak(stage, block) {
+		this.allowMessage = false;
 		if (stage === "practice") {
 			this.stopAnimation();
 			this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -781,43 +786,45 @@ export default class Game {
 			})
 		);
 	}
-	addResponseHandler(Index) {
-		const responseHandler = (event) => {
-			event.preventDefault();
-
-			if (event.key === "x") {
-				let dotRT = this.createTimestamp(this.dotTimestamp);
-				let totalRT = this.createTimestamp(this.totalRTTimestamp);
-				this.ws.send(
-					JSON.stringify({
-						stage: this.stage,
-						block: this.block,
-						type: "response",
-						index: Index,
-						data: "right",
-						rt: dotRT,
-						totalRt: totalRT,
-					})
-				);
-			} else if (event.key === "z") {
-				let dotRT = this.createTimestamp(this.dotTimestamp);
-				let totalRT = this.createTimestamp(this.totalRTTimestamp);
-				this.ws.send(
-					JSON.stringify({
-						stage: this.stage,
-						block: this.block,
-						type: "response",
-						index: Index,
-						data: "left",
-						rt: dotRT,
-						totalRt: totalRT,
-					})
-				);
-			}
-		};
-		document.addEventListener("keydown", responseHandler, { once: true });
-		// Optional: return the handler function in case you need to remove it later
-		return responseHandler;
+	handleKeyResponse(event) {
+		console.log(this.allowMessage);
+		event.preventDefault();
+		if (!this.allowMessage) {
+			return;
+		}
+		if (event.key === "x") {
+			let dotRT = this.createTimestamp(this.dotTimestamp);
+			let totalRT = this.createTimestamp(this.totalRTTimestamp);
+			this.ws.send(
+				JSON.stringify({
+					stage: this.stage,
+					block: this.block,
+					type: "response",
+					index: this.divCurrentlyCompleting,
+					data: "right",
+					rt: dotRT,
+					totalRt: totalRT,
+				})
+			);
+			console.log("keypress");
+			this.allowMessage = false;
+		} else if (event.key === "z") {
+			let dotRT = this.createTimestamp(this.dotTimestamp);
+			let totalRT = this.createTimestamp(this.totalRTTimestamp);
+			this.ws.send(
+				JSON.stringify({
+					stage: this.stage,
+					block: this.block,
+					type: "response",
+					index: this.divCurrentlyCompleting,
+					data: "left",
+					rt: dotRT,
+					totalRt: totalRT,
+				})
+			);
+			console.log("keypress");
+			this.allowMessage = false;
+		}
 	}
 	checkUpdatedState(state, block) {
 		if (block === "sep") {
@@ -934,8 +941,7 @@ export default class Game {
 	drawNewDirection(Index, divlist, expConsts, direction) {
 		this.stopAnimation();
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-		document.removeEventListener("keyup", this.responseHandler);
-
+		this.allowMessage = false;
 		this.drawTimeout = setTimeout(() => {
 			this.dotTimestamp = Date.now();
 			this.generateDotMotionAperture(Index, divlist, expConsts, direction);
@@ -1105,7 +1111,8 @@ export default class Game {
 	}
 	generateDotMotionAperture(divID, divlist, expConsts, direction) {
 		// Clear previous drawings
-		this.responseHandler = this.addResponseHandler(divID);
+		this.divCurrentlyCompleting = divID;
+		this.allowMessage = true;
 		this.currentlyCompleting = true;
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 		this.ctx.setzIndex = 1;
