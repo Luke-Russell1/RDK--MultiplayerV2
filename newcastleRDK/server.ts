@@ -1914,7 +1914,7 @@ wss.on("connection", async function (ws) {
 		if (connections.player1 === ws) removeConnection("player1");
 		else if (connections.player2 === ws) removeConnection("player2");
 		if (connections.player1 === null && connections.player2 === null) {
-			state.gameNo += 1;
+			process.kill(0);
 			transferConnection(connectionArray);
 		}
 	});
