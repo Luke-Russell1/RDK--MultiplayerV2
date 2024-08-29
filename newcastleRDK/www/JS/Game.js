@@ -262,7 +262,7 @@ export default class Game {
 							break;
 						case "state":
 							this.state = this.updateState(data.data, data.block);
-							this.checkUpdatedState(state);
+							this.checkUpdatedState(this.state);
 							break;
 						case "playerChoice":
 							this.divs = this.handleCompletedImages(data.data, this.divs);
