@@ -518,9 +518,9 @@ async function writeData(data: any, suffix: "A" | "B") {
 		const dataString = JSON.stringify(data, null, 2); // Indent JSON for readability
 
 		// Define the filename and path using __dirname
-		const platform = `${state.player1.platform}${state.player2.platform}`;
+		const platform = `${state.player1.platform}`;
 		const dateString = new Date();
-		const filename = `game${platform}${dateString.toISOString()}.json`;
+		const filename = `game${platform}${dateString.toISOString()}${suffix}.json`;
 		const filePath = path.join(expValues.dataPath, filename);
 
 		// Write the JSON string to a file
@@ -1316,7 +1316,6 @@ async function handleIntroductionMessaging(
 	connections: any,
 	data: any
 ) {
-	console.log(data);
 	switch (type) {
 		case "consent":
 			if (ws === connections.player1) {
@@ -1338,7 +1337,11 @@ async function handleIntroductionMessaging(
 		case "participantInfo":
 			if (connections.player1 === ws) {
 				state.player1.id = data.id;
-				state.player1.platform = data.platform;
+				state.player1.platform = data.origin;
+			}
+			if (connections.player2 === ws) {
+				state.player2.id = data.id;
+				state.player2.platform = data.origin;
 			}
 			break;
 		case "completedInstructions":
@@ -1824,7 +1827,6 @@ wss.on("connection", async function (ws) {
 
 	ws.on("message", async function message(m) {
 		const data = JSON.parse(m.toString("utf-8"));
-		console.log(data);
 		switch (data.stage) {
 			case "intro":
 				handleIntroductionMessaging(data.type, ws, connections, data.data);

@@ -53,10 +53,12 @@ const practiceInstructionsHTML = `
 <div class = "practiceInstructions" align="center">
 <p> In this block, you will complete 10 trials, 5 by yourself and 5 with your partner. You are free to select the order in which you complete the different dot motion difficulties. <br>
 Initially, the trials will be 12 seconds with a 12 second break. Later it will switch to 6 second trials with a 6 second break, matching the experiment. <br>
-Here, you will use the mouse to select a difficulty level by clicking on it, then responding with either "Z" for left or "X" for right when you think you know which direction the dots are moving. <br>
-If you respond incorrectly, there will be a 500ms delay before you can respond again. <br>
+Here, you will use the mouse to select a task by clicking on it, then responding with either "Z" for left or "X" for right when you think you know which direction the dots are moving. <br>
+If you respond incorrectly, there will be a 500ms delay before you can respond again. Tasks you have completed, or that your partner have completed will be greyed out.<br> </p>
+<p>
 Please try and complete each task as quickly and accurately as possible. <br>
 Please press enter to begin the practice block.
+</p>
 </div>
 `;
 function loadPracticeInstructions(targetElementId, ws) {

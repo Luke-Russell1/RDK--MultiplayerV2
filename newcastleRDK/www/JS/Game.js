@@ -366,6 +366,8 @@ export default class Game {
 		if (this.breakdiv) {
 			this.breakdiv.remove();
 		}
+		this.stopAnimation();
+		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); // Clear the canvas
 		const pixelPos = [
 			// Top Center
 			[this.canvas.height / 8, this.canvas.width / 2],
@@ -450,11 +452,13 @@ export default class Game {
 				const breakDiv = document.createElement("div");
 				let breakText = "";
 				breakText = `<div align="center">
+				<h1> Break </h1>
 				<p> 
 				You have completed ${this.trialNo} of ${this.expConsts.blockLength} trials in this block. Please take a 6 second break.
 				</p>
 				<p>
-				You completed ${data.P1completed} out of 8 tasks in 6 seconds.
+				You completed ${data.P1completed} out of 8 tasks in 6 seconds. <br>
+				You will have 6 seconds to complete the next trial
 				</p>
 				</div>`;
 				breakDiv.className = "breakDiv";
@@ -481,12 +485,14 @@ export default class Game {
 				document.removeEventListener("keyup", this.responseHandler);
 				let breakText = "";
 				breakText = `<div align="center">
+				<h1> Break </h1>
 				<p> 
 				You have completed ${this.trialNo} of ${this.expConsts.blockLength} trials in this block. Please take a 6 second break.
 				</p>
 				<p>
 				You completed ${data.P1completed} tasks and your partner completed ${data.P2completed} tasks out of 8 <br>
-				in 6 seconds.
+				in 6 seconds. <br>
+				You will have 6 seconds to complete the next trial
 				</p>
 				</div>`;
 
@@ -519,11 +525,13 @@ export default class Game {
 				let breakText = "";
 
 				breakText = `<div align="center">
+				<h1> Break </h1>
 				<p> 
 				You have completed ${this.trialNo} of 10 practice trials. Please take a 12 second break.
 				</p>
 				<p>
-				You completed ${data.P1completed} out of 8 tasks in 12 seconds.
+				You completed ${data.P1completed} out of 8 tasks in 12 seconds. <br>
+				You will have 12 seconds to complete the next trial
 				</p>
 				</div>`;
 
@@ -554,16 +562,17 @@ export default class Game {
 					document.removeEventListener("keyup", this.responseHandler);
 					let breakText = "";
 					breakText = `<div align="center">
-				<p> 
-				You have completed ${this.trialNo} of 10 practice trials. Please take a 12 second break.
-				</p>
-				<p>
-				You completed ${data.P1completed} tasks and your partner completed ${data.P2completed} tasks out of 8.
-				</p>
-				<p> 
-				The next 3 trials will be completed the same as the experiment. The trial will last 6 seconds, with a 6 second break inbetween trials. 
-				</p>
-				</div>`;
+					<h1> Break </h1>
+					<p> 
+					You have completed ${this.trialNo} of 10 practice trials. Please take a 12 second break.
+					</p>
+					<p>
+					You completed ${data.P1completed} tasks and your partner completed ${data.P2completed} tasks out of 8.
+					</p>
+					<p> 
+					The next 3 trials will be completed the same as the experiment. The trial will last 6 seconds, with a 6 second break inbetween trials. 
+					</p>
+					</div>`;
 
 					// Create a div element for the break overlay
 					const breakDiv = document.createElement("div");
@@ -591,11 +600,13 @@ export default class Game {
 					document.removeEventListener("keyup", this.responseHandler);
 					let breakText = "";
 					breakText = `<div align="center">
+					<h1> Break </h1>
 					<p> 
 					You have completed ${this.trialNo} of 10 practice trials. Please take a 12 second break.
 					</p>
 					<p>
-					You completed ${data.P1completed} tasks and your partner completed ${data.P2completed} tasks out of 8 in 12 seconds.
+					You completed ${data.P1completed} tasks and your partner completed ${data.P2completed} tasks out of 8 in 12 seconds. <br>
+					You will have 12 seconds to complete the next trial. 
 					</p>
 					</div>`;
 
@@ -625,11 +636,13 @@ export default class Game {
 					document.removeEventListener("keyup", this.responseHandler);
 					let breakText = "";
 					breakText = `<div align="center">
+					<h1> Break </h1>
 					<p> 
 					You have completed ${this.trialNo} of 10 practice trials. Please take a 6 second break.
 					</p>
 					<p>
-					You completed ${data.P1completed} tasks and your partner completed ${data.P2completed} tasks out of 8 in 6 seconds.
+					You completed ${data.P1completed} tasks and your partner completed ${data.P2completed} tasks out of 8 in 6 seconds. <br>
+					You will have 6 seconds to complete the next trial. 
 					</p>
 					</div>`;
 
@@ -666,13 +679,14 @@ export default class Game {
 			document.removeEventListener("keyup", this.responseHandler);
 			let breakText = "";
 			breakText = `<div align="center">
-				<p> 
-				You have completed ${this.trialNo} of 10 practice trials. Please take a short 20 second break.
-				</p>
-				<p>
-				The next 5 trials will be completed with a partner. 
-				</p>
-				</div>`;
+			<h1> Break </h1>
+			<p> 
+			You have completed ${this.trialNo} of 10 practice trials. Please take a short 20 second break.
+			</p>
+			<p>
+			The next 5 trials will be completed with a partner. 
+			</p>
+			</div>`;
 			const breakDiv = document.createElement("div");
 			breakDiv.style.position = "absolute";
 			breakDiv.style.top = "0";
