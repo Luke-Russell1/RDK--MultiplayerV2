@@ -2,6 +2,63 @@
 This file contains the HTML for the instructions that are displayed to the user at the start of the experiment and during each block. 
 MAY NEED TO ADD A REDIRECT FOR PROLIFIC OR SONA PARTICIPANTS AT THE END, DEPENDING ON HOW THE EXPERIMENT IS BEING RUN
 */
+async function addWaitingMessage(targetElement) {
+	const waitingMessage = document.createElement("p");
+	waitingMessage.innerText = "Waiting for other player...";
+	waitingMessage.style.textAlign = "center";
+	waitingMessage.style.fontSize = "16px";
+	waitingMessage.style.color = "black";
+	targetElement.appendChild(waitingMessage);
+}
+async function sendMessage(ws, message) {
+	try {
+		await retryMessage(ws, message);
+		return true; // Return true if the message was sent successfully
+	} catch (error) {
+		// Log and rethrow the final error if retries are exhausted
+		console.error("Final error sending message:", error);
+		throw error;
+	}
+}
+
+async function retryMessage(ws, message, maxRetries = 4, retryDelay = 1000) {
+	let attempts = 0;
+
+	while (attempts < maxRetries) {
+		try {
+			// Attempt to send the message
+			await new Promise((resolve, reject) => {
+				ws.send(message, (error) => {
+					if (error) {
+						reject(error); // Reject the promise if there's an error
+					} else {
+						resolve(); // Resolve the promise if successful
+					}
+				});
+			});
+			// If successful, return true
+			return true;
+		} catch (error) {
+			attempts++;
+			if (attempts >= maxRetries) {
+				// If maximum attempts reached, throw the error
+				console.error(
+					`Failed to send message after ${maxRetries} attempts: ${error}`
+				);
+				throw error;
+			}
+			// Log the error and retry after a delay
+			console.error(
+				`Error sending message, retrying... (attempt ${attempts}/${maxRetries}): ${error}`
+			);
+			await new Promise((resolve) => setTimeout(resolve, retryDelay));
+		}
+	}
+
+	// This line will never be reached due to the throw in the catch block
+	return false;
+}
+
 const instructionsHTML = `
 <div style="text-align: center;">
 <h1>Instructions</h1>
@@ -61,36 +118,70 @@ Please press enter to begin the practice block.
 </p>
 </div>
 `;
-function loadPracticeInstructions(targetElementId, ws) {
+let practiceInstructionsHandler;
+
+async function loadPracticeInstructions(targetElementId, ws) {
 	const targetElement = document.getElementById(targetElementId);
-	if (targetElement) {
-		targetElement.innerHTML = practiceInstructionsHTML;
+	if (!targetElement) {
+		console.error(`Target element with ID '${targetElementId}' not found.`);
+		return;
+	}
 
-		const keyPressHandler = (event) => {
+	// Insert practice instructions HTML
+	targetElement.innerHTML = practiceInstructionsHTML;
+
+	// Remove any existing event listener for keyup
+	if (practiceInstructionsHandler) {
+		document.removeEventListener("keyup", practiceInstructionsHandler);
+	}
+
+	// Define the event handler function
+	const enterKeyPromise = new Promise((resolve) => {
+		practiceInstructionsHandler = async (event) => {
 			if (event.key === "Enter") {
-				setTimeout(() => {
-					handleStartExperiment(ws);
-					document.removeEventListener("keyup", keyPressHandler);
-				}, 1000);
-
-				// Create and insert the "waiting for other player" message
-				let waitingMessage = document.createElement("p");
-				waitingMessage.innerText = "Waiting for other player...";
-				waitingMessage.style.textAlign = "center";
-				waitingMessage.style.fontSize = "16px";
-				waitingMessage.style.color = "black";
-				targetElement.appendChild(waitingMessage);
+				// Remove the event listener after handling
+				console.log("enter key pressed");
+				document.removeEventListener("keyup", practiceInstructionsHandler);
+				// Resolve the promise
+				resolve();
 			}
 		};
+		// Add the event listener
+		document.addEventListener("keyup", practiceInstructionsHandler);
+	});
 
-		document.addEventListener("keyup", keyPressHandler, { once: true });
-	} else {
-		console.error(`Target element with ID '${targetElementId}' not found.`);
+	// Timer promise to handle timeout
+	const timerPromise = new Promise((resolve) => {
+		setTimeout(() => {
+			console.log("timer expired");
+			resolve();
+		}, 30000); // 30 seconds
+	});
+
+	try {
+		await Promise.race([enterKeyPromise, timerPromise]);
+
+		// Handle starting the experiment
+		await handleStartExperiment(ws);
+
+		// Create and insert the "waiting for other player" message
+		await addWaitingMessage(targetElementId);
+	} catch (error) {
+		console.error("An error occurred:", error);
 	}
 }
 
-function handleStartExperiment(ws) {
-	ws.send(JSON.stringify({ stage: "intro", type: "completedInstructions" }));
+async function handleStartExperiment(ws) {
+	try {
+		console.log("Sending start practice instruction");
+		const message = JSON.stringify({
+			stage: "intro",
+			type: "completedInstructions",
+		});
+		await sendMessage(ws, message);
+	} catch (error) {
+		console.error("Unable to send start practice instruction:", error);
+	}
 }
 
 const sepInstructionsHTML = `
@@ -111,50 +202,70 @@ Please try and complete each trial as quickly and accurately as possible. <br>
 `;
 let sepInstructionsHandler = null;
 
-function loadSepInstructions(targetElementId, ws) {
+async function loadSepInstructions(targetElementId, ws, messageHandler) {
 	const targetElement = document.getElementById(targetElementId);
-	if (targetElement) {
-		targetElement.innerHTML = sepInstructionsHTML;
+	this.allowMessage = true;
 
-		// Cleanup previous event listener if exists
-		if (sepInstructionsHandler) {
-			document.removeEventListener("keyup", sepInstructionsHandler);
-		}
+	if (!targetElement) {
+		console.error(`Target element with ID '${targetElementId}' not found.`);
+		return;
+	}
 
-		// Define the event handler function
-		sepInstructionsHandler = function (event) {
+	// Insert SEP instructions HTML
+	targetElement.innerHTML = sepInstructionsHTML;
+
+	// Remove any existing event listener for keyup
+	if (typeof sepInstructionsHandler !== "undefined") {
+		document.removeEventListener("keyup", sepInstructionsHandler);
+	}
+
+	// Define the event handler function
+	const enterKeyPromise = new Promise((resolve) => {
+		const sepInstructionsHandler = async (event) => {
 			if (event.key === "Enter") {
-				// Handle the event
-				handleSepIntructions(ws);
-
-				// Remove the event listener after handling
+				// Remove the event listener
+				console.log("enter key pressed");
 				document.removeEventListener("keyup", sepInstructionsHandler);
-
-				// Create and insert the "waiting for other player" message
-				const waitingMessage = document.createElement("p");
-				waitingMessage.innerText = "Waiting for other player...";
-				waitingMessage.style.textAlign = "center";
-				waitingMessage.style.fontSize = "20px";
-				waitingMessage.style.color = "black";
-				targetElement.appendChild(waitingMessage);
+				// Resolve the promise
+				resolve();
 			}
 		};
-
 		// Add the event listener
-		document.addEventListener("keyup", sepInstructionsHandler, { once: true });
-	} else {
-		console.error(`Target element with ID '${targetElementId}' not found.`);
+		document.addEventListener("keyup", sepInstructionsHandler);
+	});
+
+	// Timer promise to handle timeout
+	const timerPromise = new Promise((resolve) => {
+		setTimeout(() => {
+			console.log("timer expired");
+			resolve();
+		}, 30000); // 30 seconds
+	});
+
+	try {
+		await Promise.race([enterKeyPromise, timerPromise]);
+
+		// Handle SEP instructions completion
+		await handleSepInstructions(ws);
+		// Display waiting message
+		await addWaitingMessage(targetElementId);
+	} catch (error) {
+		console.error("An error occurred:", error);
 	}
 }
 
-function handleSepIntructions(ws) {
-	ws.send(
-		JSON.stringify({
+async function handleSepInstructions(ws) {
+	console.log("Sending SEP instructions message");
+	try {
+		const message = JSON.stringify({
 			stage: "game",
 			block: "sep",
 			type: "instructionsComplete",
-		})
-	);
+		});
+		await sendMessage(ws, message);
+	} catch (error) {
+		console.error("Unable to send SEP instructions message:", error);
+	}
 }
 
 const collabInstructionsHTML = `
@@ -162,58 +273,75 @@ const collabInstructionsHTML = `
 <h1>Instructions</h1>
 </div>
 <div class = "collabInstructions" align="center">
-<p> In this block, you will complete 20 trials paired with another participant. You are free to select the order in which you complete the different dot motion difficulties, although you cannot complete one that your partner is completing, 
+<p> In this block, you will complete 30 trials paired with another participant. You are free to select the order in which you complete the different dot motion difficulties, although you cannot complete one that your partner is completing, 
 or has already completed. Each trial will last 6 seconds, with a 6 second break inbetween trials. <br> 
 Remember to select the difficulty by clicking, and responding with "Z" for left and "X" for right. Be careful of the 500ms incorrect penalty! </p>
 <p> Please try and complete each trial as quickly and accurately as possible. </p> 
 <p> Please press enter to begin the block </p>
 `;
-let collabInstructionsHandler = null;
+let collabInstructionsHandler;
 
-function loadCollabInstructions(targetElementId, ws) {
+async function loadCollabInstructions(targetElementId, ws) {
 	const targetElement = document.getElementById(targetElementId);
-	if (targetElement) {
-		targetElement.innerHTML = collabInstructionsHTML;
+	if (!targetElement) {
+		console.error(`Target element with ID '${targetElementId}' not found.`);
+		return;
+	}
 
-		// Remove the previous event listener if it exists
-		if (collabInstructionsHandler) {
-			document.removeEventListener("keydown", collabInstructionsHandler);
-		}
+	// Insert collaboration instructions HTML
+	targetElement.innerHTML = collabInstructionsHTML;
 
-		// Define the event handler function
-		collabInstructionsHandler = function (event) {
+	// Remove any existing event listener for keydown
+	if (collabInstructionsHandler) {
+		document.removeEventListener("keydown", collabInstructionsHandler);
+	}
+
+	// Define the event handler function
+	const enterKeyPromise = new Promise((resolve) => {
+		collabInstructionsHandler = async (event) => {
 			if (event.key === "Enter") {
-				// Handle the event
-				handleCollabInstructions(ws);
-
+				console.log("enter key pressed");
 				// Remove the event listener after handling
 				document.removeEventListener("keydown", collabInstructionsHandler);
-
-				// Create and insert the "waiting for other player" message
-				const waitingMessage = document.createElement("p");
-				waitingMessage.innerText = "Waiting for other player...";
-				waitingMessage.style.textAlign = "center";
-				waitingMessage.style.fontSize = "20px";
-				waitingMessage.style.color = "black";
-				targetElement.appendChild(waitingMessage);
+				// Resolve the promise
+				resolve();
 			}
 		};
-
 		// Add the event listener
 		document.addEventListener("keydown", collabInstructionsHandler);
-	} else {
-		console.error(`Target element with ID '${targetElementId}' not found.`);
+	});
+
+	// Timer promise to handle timeout
+	const timerPromise = new Promise((resolve) => {
+		setTimeout(() => {
+			console.log("timer expired");
+			resolve();
+		}, 30000); // 30 seconds
+	});
+
+	try {
+		await Promise.race([enterKeyPromise, timerPromise]);
+		// Handle collaboration instructions completion
+		await handleCollabInstructions(ws);
+		// Create and insert the "waiting for other player" message
+		await addWaitingMessage(targetElementId);
+	} catch (error) {
+		console.error("An error occurred:", error);
 	}
 }
 
-function handleCollabInstructions(ws) {
-	ws.send(
-		JSON.stringify({
+async function handleCollabInstructions(ws) {
+	try {
+		console.log("Sending collaboration message");
+		const message = JSON.stringify({
 			stage: "game",
 			block: "collab",
 			type: "instructionsComplete",
-		})
-	);
+		});
+		await sendMessage(ws, message);
+	} catch (error) {
+		console.error("Unable to send collaboration instructions message:", error);
+	}
 }
 
 const endGameHTML = `
@@ -265,4 +393,5 @@ export {
 	loadSepInstructions,
 	loadCollabInstructions,
 	loadEndGame,
+	sendMessage,
 };

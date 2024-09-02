@@ -291,17 +291,45 @@ function removeConnection(player: "player1" | "player2") {
 		connections.player2 = null;
 	}
 }
-async function sendMessage(connection: WebSocket, message: string) {
-	return new Promise((resolve, reject) => {
-		connection.send(message, (error) => {
-			if (error) {
-				reject(error);
-			} else {
-				resolve(true);
+async function sendMessage(
+	connection: WebSocket,
+	message: string,
+	maxRetries: number = 5,
+	retryDelay: number = 100
+): Promise<boolean> {
+	let attempt = 0;
+
+	while (attempt < maxRetries) {
+		try {
+			// Wrap the send operation in a promise
+			await new Promise<void>((resolve, reject) => {
+				connection.send(message, (error) => {
+					if (error) {
+						reject(error);
+					} else {
+						resolve();
+					}
+				});
+			});
+			// If send is successful, return true
+			return true;
+		} catch (error) {
+			attempt++;
+			if (attempt >= maxRetries) {
+				// If maximum attempts reached, reject the promise
+				throw new Error(
+					`Failed to send message after ${maxRetries} attempts: ${error}`
+				);
 			}
-		});
-	});
+			// Wait before retrying
+			await new Promise((resolve) => setTimeout(resolve, retryDelay));
+		}
+	}
+
+	// This line will never be reached due to the throw in the catch block
+	return false;
 }
+
 async function chooseNewDirection(
 	state: State,
 	playerID: "player1" | "player2",

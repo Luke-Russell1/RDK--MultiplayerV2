@@ -1,3 +1,4 @@
+import { sendMessage } from "./instructions.js";
 const consentFormHTML = `
 <div class = "consent" style="text-align: center;">
 <div style="text-align: center;">
@@ -92,7 +93,7 @@ function loadConsentForm(targetElementId, ws) {
 		console.error(`Target element with ID '${targetElementId}' not found.`);
 	}
 }
-function displayInfoHTML(targetElementId, ws) {
+async function displayInfoHTML(targetElementId, ws) {
 	const targetElement = document.getElementById(targetElementId);
 	if (targetElement) {
 		const ageInput = document.getElementById("age");
@@ -142,10 +143,19 @@ function displayInfoHTML(targetElementId, ws) {
 		console.error(`Target element with ID '${targetElementId}' not found.`);
 	}
 }
-function handleStartExperiment(ws, data) {
+async function handleStartExperiment(ws, data) {
 	console.log("Start Experiment button clicked");
 	if (ws && typeof ws.send === "function") {
-		ws.send(JSON.stringify({ stage: "intro", type: "consent", data: data }));
+		try {
+			const message = JSON.stringify({
+				stage: "intro",
+				type: "consent",
+				data: data,
+			});
+			await sendMessage(ws, message);
+		} catch (error) {
+			console.error("could not send info message", error);
+		}
 	} else {
 		console.error("WebSocket connection (ws) is invalid or not available.");
 	}
