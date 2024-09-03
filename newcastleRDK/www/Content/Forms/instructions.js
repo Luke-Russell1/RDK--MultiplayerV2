@@ -89,6 +89,7 @@ function loadInstructions(targetElementId, ws) {
 			const keyPressHandler = (event) => {
 				if (event.key === "Enter") {
 					loadPracticeInstructions(targetElementId, ws);
+					addWaitingMessage(targetElement);
 					// Remove the event listener
 					document.removeEventListener("keyup", keyPressHandler);
 					instructionEventListenerAttached = false;
@@ -155,17 +156,16 @@ async function loadPracticeInstructions(targetElementId, ws) {
 		setTimeout(() => {
 			console.log("timer expired");
 			resolve();
-		}, 30000); // 30 seconds
+		}, 45 * 1000); // 30 seconds
 	});
 
 	try {
 		await Promise.race([enterKeyPromise, timerPromise]);
-
 		// Handle starting the experiment
+		addWaitingMessage(targetElement);
 		await handleStartExperiment(ws);
 
 		// Create and insert the "waiting for other player" message
-		await addWaitingMessage(targetElementId);
 	} catch (error) {
 		console.error("An error occurred:", error);
 	}
@@ -239,7 +239,7 @@ async function loadSepInstructions(targetElementId, ws, messageHandler) {
 		setTimeout(() => {
 			console.log("timer expired");
 			resolve();
-		}, 30000); // 30 seconds
+		}, 45 * 1000); // 30 seconds
 	});
 
 	try {
@@ -248,7 +248,7 @@ async function loadSepInstructions(targetElementId, ws, messageHandler) {
 		// Handle SEP instructions completion
 		await handleSepInstructions(ws);
 		// Display waiting message
-		await addWaitingMessage(targetElementId);
+		await addWaitingMessage(targetElement);
 	} catch (error) {
 		console.error("An error occurred:", error);
 	}
@@ -316,15 +316,15 @@ async function loadCollabInstructions(targetElementId, ws) {
 		setTimeout(() => {
 			console.log("timer expired");
 			resolve();
-		}, 30000); // 30 seconds
+		}, 45 * 1000); // 30 seconds
 	});
 
 	try {
 		await Promise.race([enterKeyPromise, timerPromise]);
 		// Handle collaboration instructions completion
+		addWaitingMessage(targetElement);
 		await handleCollabInstructions(ws);
 		// Create and insert the "waiting for other player" message
-		await addWaitingMessage(targetElementId);
 	} catch (error) {
 		console.error("An error occurred:", error);
 	}

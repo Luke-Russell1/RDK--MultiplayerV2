@@ -117,6 +117,7 @@ const expValues = {
 	practiceLength2: 6,
 	practiceBreak1: 12,
 	practiceBreak2: 6,
+	gameNoPath: "/data/gameNo.txt",
 };
 /*
 REMEBER TO REMOVE OR CHANGE THIS
@@ -203,6 +204,7 @@ let trackingObjectCopy = deepCopy(trackingObject);
 /*
 functions start below here
 */
+
 function saveTrialData(state: State, block: string) {
 	state.block = block;
 	dataArray.push(state);
@@ -547,8 +549,8 @@ async function writeData(data: any, suffix: "A" | "B") {
 
 		// Define the filename and path using __dirname
 		const platform = `${state.player1.platform}`;
-		const dateString = new Date();
-		const filename = `game${platform}${dateString.toISOString()}${suffix}.json`;
+		const dateString = returnDateString();
+		const filename = `game${platform}${dateString}${suffix}.json`;
 		const filePath = path.join(expValues.dataPath, filename);
 
 		// Write the JSON string to a file
@@ -557,6 +559,19 @@ async function writeData(data: any, suffix: "A" | "B") {
 		// Handle errors (e.g., file system errors)
 		console.error(`Failed to write data`, error);
 	}
+}
+function returnDateString() {
+	const now = new Date();
+
+	// Get individual components
+	const year = now.getFullYear();
+	const month = String(now.getMonth() + 1).padStart(2, "0"); // Months are zero-based, so add 1
+	const day = String(now.getDate()).padStart(2, "0");
+	const hours = String(now.getHours()).padStart(2, "0");
+	const minutes = String(now.getMinutes()).padStart(2, "0");
+	const seconds = String(now.getSeconds()).padStart(2, "0");
+	const dateString = `${year}-${month}-${day}-${hours}:${minutes}:${seconds}`;
+	return dateString;
 }
 
 function createTrials(state: State, blockType: string) {
@@ -653,6 +668,7 @@ async function handleRDKSelection(
 					]);
 				} else if (player === "player2") {
 					state.RDK.player[data] = 2;
+					state.P2RDK.choice.push(data);
 					state.P2RDK.choiceTime[data] = rt;
 					state.P2RDK.mostRecentChoice = data;
 					state.RDK.timeStamp[data] = createTimestamp(timeStamp);
@@ -1747,6 +1763,13 @@ function gameSepMessaging(data: any, ws: WebSocket, connections: any) {
 			break;
 	}
 }
+function ping(interval: number, ws: WebSocket) {
+	setInterval(() => {
+		if (ws.readyState === WebSocket.OPEN) {
+			ws.ping();
+		}
+	}, interval);
+}
 async function transferConnection(connectionArray: Array<WebSocket>) {
 	/*
 	Transfers the connection from the waiting room to the game when spots become available
@@ -1813,11 +1836,13 @@ async function handleInitialConnection(
 		await sendMessage(connections.player1, message);
 		state.stage = "waitingRoom";
 		trackingObject.p1Ready = true;
+		ping(60 * 1000, ws);
 	} else if (player === "player2") {
 		connections.player2 = ws;
 		await sendMessage(connections.player2, message);
 		state.stage = "waitingRoom";
 		trackingObject.p1Ready = true;
+		ping(60 * 1000, ws);
 	}
 }
 async function handleExtraConnection(ws: WebSocket) {
@@ -1831,6 +1856,7 @@ async function handleExtraConnection(ws: WebSocket) {
 wss.on("connection", async function (ws) {
 	if (connections.player1 === null) {
 		await handleInitialConnection("player1", ws);
+		ping(60 * 1000, ws);
 	} else if (connections.player2 === null) {
 		await handleInitialConnection("player2", ws);
 	} else {
@@ -1852,7 +1878,9 @@ wss.on("connection", async function (ws) {
 			}
 		}
 	}
-
+	ws.on("pong", () => {
+		console.log("connection alive");
+	});
 	ws.on("message", async function message(m) {
 		const data = JSON.parse(m.toString("utf-8"));
 		switch (data.stage) {
