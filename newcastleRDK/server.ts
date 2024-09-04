@@ -1387,8 +1387,7 @@ async function handleIntroductionMessaging(
 			if (connections.player1 === ws) {
 				state.player1.id = data.id;
 				state.player1.platform = data.origin;
-			}
-			if (connections.player2 === ws) {
+			} else if (connections.player2 === ws) {
 				state.player2.id = data.id;
 				state.player2.platform = data.origin;
 			}

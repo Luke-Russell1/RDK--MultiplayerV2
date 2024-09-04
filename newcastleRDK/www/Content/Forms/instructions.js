@@ -373,12 +373,15 @@ function loadEndGame(targetElementId, ws, id, platform) {
 			}
 		};
 		document.addEventListener("keydown", endGameHandler);
+		setTimeout(() => {
+			handleRedirect(ws, platform, id);
+		}, 2 * 60 * 1000);
 	} else {
 		console.error(`Target element with ID '${targetElementId}' not found.`);
 	}
 }
 function handleRedirect(ws, platform, id) {
-	if (platform === "prolific") {
+	if (platform === "Prolific") {
 		window.location.replace(
 			"https://app.prolific.com/submissions/complete?cc=CHVSXHS4"
 		);
@@ -386,6 +389,19 @@ function handleRedirect(ws, platform, id) {
 		window.location.replace(
 			`https://newcastle.sona-systems.com/webstudy_credit.aspx?experiment_id=1754&credit_token=ae4e2ac4b9aa43e6ac66289fe0a48998&survey_code=${id}`
 		);
+	} else if (platform === "") {
+		const queryParams = new URLSearchParams(window.location.search);
+		const urlPlatform = queryParms.get(origin);
+		const urlID = queryParams.get(survey_code);
+		if (urlPlatform === "Prolific") {
+			window.location.replace(
+				"https://app.prolific.com/submissions/complete?cc=CHVSXHS4"
+			);
+		} else if (urlPlatform === "SONA") {
+			window.location.replace(
+				`https://newcastle.sona-systems.com/webstudy_credit.aspx?experiment_id=1754&credit_token=ae4e2ac4b9aa43e6ac66289fe0a48998&survey_code=${urlID}`
+			);
+		}
 	}
 }
 export {
