@@ -23,7 +23,6 @@ export default class Game {
 		this.platform = platform;
 		this.currentlyCompleting = false;
 		this.allowMessage = false;
-		console.log(this.allowMessage);
 		this.ws.send(
 			JSON.stringify({
 				stage: this.stage,
@@ -31,7 +30,7 @@ export default class Game {
 				type: "instructionsComplete",
 			})
 		);
-		console.log("Luke chnages made 1908 1044am");
+		console.log("Luke changes made 0409 1044am");
 		this.container = document.getElementById(containerId);
 		this.clearContainer();
 		this.canvas = document.createElement("canvas");
@@ -79,6 +78,7 @@ export default class Game {
 		this.rtTimestamp = Date.now();
 		this.totalRTTimestamp = Date.now();
 		this.newDirectionTimeout = null;
+		this.rAF;
 		/*
         Below controls the images that are displayed on the canvas.
         This will be on a div that corresponds to a cetain difficulty level.
@@ -124,9 +124,10 @@ export default class Game {
 		document.addEventListener("keydown", this.handleKeyResponse);
 		this.ws.onmessage = async (event) => {
 			let data = JSON.parse(event.data);
-			console.log(this.allowMessage);
 			console.log(data);
 			switch (data.stage) {
+				case "heartbeat":
+					this.ws.send(JSON.stringify({ stage: "heartbeat" }));
 				case "practice":
 					switch (data.type) {
 						case "initialState":
@@ -147,7 +148,11 @@ export default class Game {
 							this.totalRTTimestamp = Date.now();
 							this.dotTimestamp = Date.now();
 							this.currentlyCompleting = true;
-							this.removeOtherDivs(this.divs.uncompleted, data.data);
+							this.removeOtherDivs(
+								this.divs.uncompleted,
+								this.divs.completed,
+								data.data
+							);
 							this.generateDotMotionAperture(
 								data.data,
 								this.divs.uncompleted,
@@ -159,7 +164,10 @@ export default class Game {
 							this.choiceTimestamp = Date.now();
 							this.currentlyCompleting = false;
 							this.stopAnimation();
-							this.divs = this.handleCompletedImages(data.data, this.divs);
+							this.divs = await this.handleCompletedImages(
+								data.data,
+								this.divs
+							);
 							this.restoreImages(this.divs);
 							break;
 						case "newDirection":
@@ -172,11 +180,10 @@ export default class Game {
 							break;
 						case "state":
 							this.state = this.updateState(data.data, data.block);
-							this.checkUpdatedState(this.state);
+							await this.checkUpdatedState(this.state);
 							break;
 						case "playerChoice":
 							this.divs = this.handleCompletedImages(data.data, this.divs);
-							this.restoreImages(this.divs);
 							break;
 						case "break":
 							if (this.drawTimeout) {
@@ -192,8 +199,10 @@ export default class Game {
 							);
 							break;
 						case "alreadySelected":
-							this.divs = this.handleCompletedImages(data.data, this.divs);
-							this.restoreImages(this.divs);
+							this.divs = await this.handleCompletedImages(
+								data.data,
+								this.divs
+							);
 							break;
 						case "blockBreak":
 							this.block = "collab";
@@ -236,7 +245,11 @@ export default class Game {
 							this.totalRTTimestamp = Date.now();
 							this.dotTimestamp = Date.now();
 							this.currentlyCompleting = true;
-							this.removeOtherDivs(this.divs.uncompleted, data.data);
+							this.removeOtherDivs(
+								this.divs.uncompleted,
+								this.divs.completed,
+								data.data
+							);
 							this.generateDotMotionAperture(
 								data.data,
 								this.divs.uncompleted,
@@ -249,7 +262,10 @@ export default class Game {
 							this.choiceTimestamp = Date.now();
 							this.currentlyCompleting = false;
 							this.stopAnimation();
-							this.divs = this.handleCompletedImages(data.data, this.divs);
+							this.divs = await this.handleCompletedImages(
+								data.data,
+								this.divs
+							);
 							this.restoreImages(this.divs);
 							break;
 						case "newDirection":
@@ -262,11 +278,13 @@ export default class Game {
 							break;
 						case "state":
 							this.state = this.updateState(data.data, data.block);
-							this.checkUpdatedState(this.state);
+							await this.checkUpdatedState(this.state);
 							break;
 						case "playerChoice":
-							this.divs = this.handleCompletedImages(data.data, this.divs);
-							this.restoreImages(this.divs);
+							this.divs = await this.handleCompletedImages(
+								data.data,
+								this.divs
+							);
 							break;
 						case "break":
 							if (this.drawTimeout) {
@@ -283,7 +301,6 @@ export default class Game {
 							break;
 						case "alreadySelected":
 							this.divs = this.handleCompletedImages(data.data, this.divs);
-							this.restoreImages(this.divs);
 							break;
 						case "endBlock":
 							if (this.drawTimeout) {
@@ -295,6 +312,7 @@ export default class Game {
 			}
 		};
 	}
+
 	preloadImages(imageList, imgArray) {
 		imageList.forEach((image) => {
 			const img = new Image();
@@ -788,20 +806,23 @@ export default class Game {
 	}
 
 	clickHandler(event) {
-		let choiceEndTime = this.createTimestamp(this.choiceTimestamp);
-		event.currentTarget.style.border = "none";
-		this.ws.send(
-			JSON.stringify({
-				stage: this.stage,
-				block: this.block,
-				type: "difficulty",
-				difficulty: event.currentTarget.id,
-				rt: choiceEndTime,
-			})
-		);
+		if (this.divs.uncompleted.includes(event.currentTarget)) {
+			let choiceEndTime = this.createTimestamp(this.choiceTimestamp);
+			event.currentTarget.style.border = "none";
+			this.ws.send(
+				JSON.stringify({
+					stage: this.stage,
+					block: this.block,
+					type: "difficulty",
+					difficulty: event.currentTarget.id,
+					rt: choiceEndTime,
+				})
+			);
+		} else {
+			this.restoreImages(this.divs);
+		}
 	}
 	handleKeyResponse(event) {
-		console.log(this.allowMessage);
 		event.preventDefault();
 		if (!this.allowMessage) {
 			return;
@@ -820,7 +841,6 @@ export default class Game {
 					totalRt: totalRT,
 				})
 			);
-			console.log("keypress");
 			this.allowMessage = false;
 		} else if (event.key === "z") {
 			let dotRT = this.createTimestamp(this.dotTimestamp);
@@ -836,18 +856,17 @@ export default class Game {
 					totalRt: totalRT,
 				})
 			);
-			console.log("keypress");
 			this.allowMessage = false;
 		}
 	}
-	checkUpdatedState(state, block) {
+	async checkUpdatedState(state, block) {
 		if (block === "sep") {
 			return;
 		} else if (block === "collab") {
 			if (!this.currentlyCompleting) {
 				for (let choice in state.RDK.choice) {
 					if (this.divs.uncompleted.includes(choice)) {
-						this.divs = this.handleCompletedImages(choice, this.divs);
+						this.divs = await this.handleCompletedImages(choice, this.divs);
 						this.restoreImages(this.divs);
 					}
 				}
@@ -856,7 +875,6 @@ export default class Game {
 	}
 	handleCompletedImages(ID, divObj) {
 		// Check if the ID exists in divObj.uncompleted
-		document.removeEventListener("keyup", this.responseHandler);
 		let completedDiv = divObj.uncompleted.find((div) => div.id === ID);
 		if (!completedDiv) {
 			return divObj; // Return the original divObj without any changes
@@ -867,18 +885,32 @@ export default class Game {
 
 		// Remove the completedDiv from divObj.uncompleted
 		divObj.uncompleted = divObj.uncompleted.filter((div) => div.id !== ID);
+		this.restoreCompletedImages(divObj);
 
 		return divObj;
 	}
 	restoreCompletedImages(divObj) {
-		this.responseHandler = null;
 		for (let div of divObj.completed) {
+			if (!div) {
+				console.warn("Skipped null or undefined div.");
+				continue;
+			}
 			this.removeEventListeners(div);
+
 			div.style.opacity = 0.5;
-			div.querySelector("img").style.display = "block";
-			let difficultyText = div.querySelector("div");
+
+			const img = div.querySelector("img");
+			if (img) {
+				img.style.display = "block";
+			} else {
+				console.warn("Image element not found in div", div);
+			}
+
+			const difficultyText = div.querySelector("div");
 			if (difficultyText) {
 				difficultyText.style.display = "block";
+			} else {
+				console.warn("Difficulty text not found in div", div);
 			}
 		}
 	}
@@ -937,8 +969,8 @@ export default class Game {
 		}
 	}
 
-	removeOtherDivs(divList, selectedDiv) {
-		for (let div of divList) {
+	removeOtherDivs(divList1, divList2, selectedDiv) {
+		for (let div of divList1) {
 			this.removeEventListeners(div);
 			if (div.id !== selectedDiv) {
 				div.style.opacity = "0.5";
@@ -950,6 +982,9 @@ export default class Game {
 					difficultyText.style.display = "none";
 				}
 			}
+		}
+		for (let div of divList2) {
+			div.style.opacity = "0.5";
 		}
 	}
 	drawNewDirection(Index, divlist, expConsts, direction) {
@@ -1077,7 +1112,7 @@ export default class Game {
 
 		if (elapsed < fpsLimit) {
 			// If not enough time has passed, exit without drawing
-			requestAnimationFrame(() =>
+			this.rAF = requestAnimationFrame(() =>
 				this.animateDots(centerX, centerY, apertureRadius)
 			);
 			return;
@@ -1118,6 +1153,7 @@ export default class Game {
 	}
 
 	stopAnimation() {
+		cancelAnimationFrame(this.rAF);
 		this.animating = false;
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 		this.canvas.width = window.innerWidth;

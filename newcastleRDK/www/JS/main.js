@@ -16,10 +16,10 @@ document.addEventListener("DOMContentLoaded", () => {
 	const defaultWsOnMessage = (event) => {
 		let message = JSON.parse(event.data);
 		console.log(message);
-		// Clear previous content in 'main' container
-		const mainContainer = document.getElementById("main");
-		mainContainer.innerHTML = "";
 		switch (message.stage) {
+			case "heartbeat":
+				console.log("heartbeat");
+				ws.send(JSON.stringify({ stage: "heartbeat" }));
 			case "waitingRoom":
 				loadWaitingRoom("main", ws);
 				break;

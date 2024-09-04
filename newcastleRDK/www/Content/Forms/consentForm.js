@@ -66,6 +66,7 @@ let data = {};
 function loadConsentForm(targetElementId, ws) {
 	const targetElement = document.getElementById(targetElementId);
 	if (targetElement) {
+		targetElement.innerHTML = "";
 		targetElement.innerHTML = consentFormHTML;
 
 		const checkbox = document.getElementById("consent_checkbox");

@@ -41,6 +41,7 @@ const connections: {
 let connectionArray: Array<WebSocket> = [];
 
 type Player = {
+	connectTime: any;
 	id: any;
 	age: number;
 	gender: string;
@@ -111,7 +112,7 @@ const expValues = {
 	block: ["sep", "collab"],
 	breakLength: 6,
 	dataPath: "/data/",
-	blockLength: 10,
+	blockLength: 30,
 	practiceTrials: 10,
 	practiceLength1: 12,
 	practiceLength2: 6,
@@ -152,6 +153,7 @@ let state: State = {
 	stage: "waitingRoom",
 	block: "sep",
 	player1: {
+		connectTime: "",
 		id: "",
 		age: 0,
 		gender: "",
@@ -160,6 +162,7 @@ let state: State = {
 	},
 	player2: {
 		id: "",
+		connectTime: "",
 		age: 0,
 		gender: "",
 		consent: false,
@@ -200,6 +203,8 @@ let trackingObject = {
 	p2endPageReached: false,
 };
 let trackingObjectCopy = deepCopy(trackingObject);
+let inactivityTimer: any;
+let timeoutDuration = 30 * 1000;
 
 /*
 functions start below here
@@ -539,7 +544,7 @@ function writeMouse(data: any, suffix: "A" | "B") {
 		console.error(`Failed to write data to ${expValues.dataPath}:`, error);
 	}
 }
-async function writeData(data: any, suffix: "A" | "B") {
+async function writeData(data: any, suffix: "A" | "B" | "C") {
 	/*
 		Function for writing the trial data to a file. File name will include the game number.
 	*/
@@ -1763,12 +1768,12 @@ function gameSepMessaging(data: any, ws: WebSocket, connections: any) {
 			break;
 	}
 }
-function ping(interval: number, ws: WebSocket) {
+function ping(ws: WebSocket) {
 	setInterval(() => {
 		if (ws.readyState === WebSocket.OPEN) {
-			ws.ping();
+			ws.send(JSON.stringify({ stage: "ping" }));
 		}
-	}, interval);
+	}, 20 * 1000);
 }
 async function transferConnection(connectionArray: Array<WebSocket>) {
 	/*
@@ -1832,17 +1837,26 @@ async function handleInitialConnection(
 	*/
 	let message = JSON.stringify({ stage: "waitingRoom" });
 	if (player === "player1") {
+		if (inactivityTimer) {
+			clearTimeout(inactivityTimer);
+		}
 		connections.player1 = ws;
 		await sendMessage(connections.player1, message);
 		state.stage = "waitingRoom";
+		state.player1.connectTime = returnDateString();
 		trackingObject.p1Ready = true;
-		ping(60 * 1000, ws);
+		ping(ws);
+		dataArray.push(state);
 	} else if (player === "player2") {
+		if (inactivityTimer) {
+			clearTimeout(inactivityTimer);
+		}
 		connections.player2 = ws;
 		await sendMessage(connections.player2, message);
 		state.stage = "waitingRoom";
+		state.player2.connectTime = returnDateString();
 		trackingObject.p1Ready = true;
-		ping(60 * 1000, ws);
+		ping(ws);
 	}
 }
 async function handleExtraConnection(ws: WebSocket) {
@@ -1853,10 +1867,19 @@ async function handleExtraConnection(ws: WebSocket) {
 	connectionArray.push(ws);
 	await sendMessage(ws, message);
 }
+function startInactivityTimer() {
+	if (inactivityTimer) {
+		clearTimeout(inactivityTimer);
+	}
+
+	// Set a new timeout to kill the process
+	inactivityTimer = setTimeout(() => {
+		process.exit(0); // Terminate the process
+	}, timeoutDuration);
+}
 wss.on("connection", async function (ws) {
 	if (connections.player1 === null) {
 		await handleInitialConnection("player1", ws);
-		ping(60 * 1000, ws);
 	} else if (connections.player2 === null) {
 		await handleInitialConnection("player2", ws);
 	} else {
@@ -1883,6 +1906,9 @@ wss.on("connection", async function (ws) {
 	});
 	ws.on("message", async function message(m) {
 		const data = JSON.parse(m.toString("utf-8"));
+		if (data.type === "heartbeat") {
+			console.log("connection alive");
+		}
 		switch (data.stage) {
 			case "intro":
 				handleIntroductionMessaging(data.type, ws, connections, data.data);
@@ -1972,8 +1998,8 @@ wss.on("connection", async function (ws) {
 		if (connections.player1 === ws) removeConnection("player1");
 		else if (connections.player2 === ws) removeConnection("player2");
 		if (connections.player1 === null && connections.player2 === null) {
-			process.kill(0);
-			transferConnection(connectionArray);
+			startInactivityTimer();
+			dataArray.push(state);
 		}
 	});
 

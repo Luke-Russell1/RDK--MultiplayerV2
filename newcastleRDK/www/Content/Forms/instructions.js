@@ -89,7 +89,6 @@ function loadInstructions(targetElementId, ws) {
 			const keyPressHandler = (event) => {
 				if (event.key === "Enter") {
 					loadPracticeInstructions(targetElementId, ws);
-					addWaitingMessage(targetElement);
 					// Remove the event listener
 					document.removeEventListener("keyup", keyPressHandler);
 					instructionEventListenerAttached = false;
@@ -143,6 +142,7 @@ async function loadPracticeInstructions(targetElementId, ws) {
 				// Remove the event listener after handling
 				console.log("enter key pressed");
 				document.removeEventListener("keyup", practiceInstructionsHandler);
+				addWaitingMessage(targetElement);
 				// Resolve the promise
 				resolve();
 			}
@@ -162,7 +162,6 @@ async function loadPracticeInstructions(targetElementId, ws) {
 	try {
 		await Promise.race([enterKeyPromise, timerPromise]);
 		// Handle starting the experiment
-		addWaitingMessage(targetElement);
 		await handleStartExperiment(ws);
 
 		// Create and insert the "waiting for other player" message
@@ -204,7 +203,6 @@ let sepInstructionsHandler = null;
 
 async function loadSepInstructions(targetElementId, ws, messageHandler) {
 	const targetElement = document.getElementById(targetElementId);
-	this.allowMessage = true;
 
 	if (!targetElement) {
 		console.error(`Target element with ID '${targetElementId}' not found.`);
@@ -246,9 +244,9 @@ async function loadSepInstructions(targetElementId, ws, messageHandler) {
 		await Promise.race([enterKeyPromise, timerPromise]);
 
 		// Handle SEP instructions completion
+		await addWaitingMessage(targetElement);
 		await handleSepInstructions(ws);
 		// Display waiting message
-		await addWaitingMessage(targetElement);
 	} catch (error) {
 		console.error("An error occurred:", error);
 	}
@@ -371,7 +369,7 @@ function loadEndGame(targetElementId, ws, id, platform) {
 		}
 		endGameHandler = function (event) {
 			if (event.key === "Enter") {
-				handleRedirect(ws, platform);
+				handleRedirect(ws, platform, id);
 			}
 		};
 		document.addEventListener("keydown", endGameHandler);
@@ -379,13 +377,15 @@ function loadEndGame(targetElementId, ws, id, platform) {
 		console.error(`Target element with ID '${targetElementId}' not found.`);
 	}
 }
-function handleRedirect(ws, platform) {
+function handleRedirect(ws, platform, id) {
 	if (platform === "prolific") {
 		window.location.replace(
 			"https://app.prolific.com/submissions/complete?cc=CHVSXHS4"
 		);
-	} else {
-		window.location.replace("https://www.newcastle.edu.au/");
+	} else if (platform === "SONA") {
+		window.location.replace(
+			`https://newcastle.sona-systems.com/webstudy_credit.aspx?experiment_id=1754&credit_token=ae4e2ac4b9aa43e6ac66289fe0a48998&survey_code=${id}`
+		);
 	}
 }
 export {
