@@ -407,6 +407,7 @@ export default class Game {
 		for (let i = 0; i < Object.keys(this.coherenceDifficulties).length; i++) {
 			const div = document.createElement("div");
 			const img = images[i];
+
 			let coherence = this.state.RDK.coherence[i];
 			let difficulty = this.coherenceDifficulties[coherence];
 			img.style.width = "75px"; // Set image width

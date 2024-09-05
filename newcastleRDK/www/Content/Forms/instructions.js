@@ -355,8 +355,8 @@ Why do people deviate from this strategy, and how do they progress to this strat
 different for those operating by themselves versus with a partner? These are the questions and processes we wish to investigate. <br>
 If you would like more information or have any questions, please contact Luke Russell at: 
  LRussell1@uon.edu.au </p>
-<p> Thank you for your time and participation. This connection will close in 5 minutes. </p>
-<p> Please press enter to complete the experiment and return to either Prolific or SONA before this occurs</p>
+<p> Thank you for your time and participation. This connection will close in 2 minutes, and you will be redirected. </p>
+<p> Or, press enter to complete the experiment and return to either Prolific or SONA</p>
 </div>`;
 
 let endGameHandler = null;
@@ -393,7 +393,7 @@ function handleRedirect(ws, platform, id) {
 		const queryParams = new URLSearchParams(window.location.search);
 		const urlPlatform = queryParms.get(origin);
 		const urlID = queryParams.get(survey_code);
-		if (urlPlatform === "Prolific") {
+		if (urlPlatform === "Prolific" || urlPlatform === "prolific") {
 			window.location.replace(
 				"https://app.prolific.com/submissions/complete?cc=CHVSXHS4"
 			);
