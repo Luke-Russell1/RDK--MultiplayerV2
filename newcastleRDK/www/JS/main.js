@@ -37,7 +37,16 @@ document.addEventListener("DOMContentLoaded", () => {
 				}
 				break;
 			case "practice":
-				game = new Game("main", ws, "practice", "sep", id, origin);
+				game = new Game(
+					"main",
+					ws,
+					"practice",
+					"sep",
+					id,
+					origin,
+					message.inProgress,
+					message.progress
+				);
 				break;
 			case "game":
 				game = new Game("main", ws, "game", message.block);

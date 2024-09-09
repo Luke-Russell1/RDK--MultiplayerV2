@@ -7,9 +7,19 @@ import {
 	loadSepInstructions,
 	loadCollabInstructions,
 	loadEndGame,
+	loadInstructions,
 } from "../Content/Forms/instructions.js";
 export default class Game {
-	constructor(containerId, websocket, stage, block, id, platform) {
+	constructor(
+		containerId,
+		websocket,
+		stage,
+		block,
+		id,
+		platform,
+		inProgress,
+		currentStage
+	) {
 		/*
         Below setsup some of the initial variables for the game including the ids, 
         backgrounds colours and the canvas settings. 
@@ -23,13 +33,6 @@ export default class Game {
 		this.platform = platform;
 		this.currentlyCompleting = false;
 		this.allowMessage = false;
-		this.ws.send(
-			JSON.stringify({
-				stage: this.stage,
-				block: block,
-				type: "instructionsComplete",
-			})
-		);
 		console.log("Luke changes made 0409 1044am");
 		this.container = document.getElementById(containerId);
 		this.clearContainer();
@@ -37,12 +40,47 @@ export default class Game {
 		this.canvas.width = this.container.clientWidth;
 		this.canvas.height = this.container.clientHeight;
 		this.ctx = this.canvas.getContext("2d");
-
 		this.setBackgroundColor("#808080"); // Initial background color
 		this.container.appendChild(this.canvas);
 		this.resizeCanvas();
 		this.state = {};
 		this.blockOrder = [];
+		if (!inProgress) {
+			this.ws.send(
+				JSON.stringify({
+					stage: this.stage,
+					block: block,
+					type: "instructionsComplete",
+				})
+			);
+		} else if (inProgress) {
+			switch (currentStage.stage) {
+				case "practiceEnd":
+					console.log("displaying instructions");
+					this.stage = "game";
+					this.block = currentStage.block;
+					this.displayBlockInstructions(this.stage, currentStage.block);
+					break;
+				case "collabInstructions":
+					console.log("displaying instructions");
+					this.stage = "game";
+					this.block = "collab";
+					this.displayBlockInstructions(this.stage, this.block);
+					break;
+				case "sepInstructions":
+					console.log("displaying instructions");
+					this.stage = "game";
+					this.block = "sep";
+					this.displayBlockInstructions(this.stage, this.block);
+					break;
+				case "practice":
+					this.breakdiv = this.handleReconnectMessage();
+					break;
+				case "game":
+					this.breakdiv = this.handleReconnectMessage();
+					break;
+			}
+		}
 		this.mouseOverHandler = this.mouseOverHandler.bind(this);
 		this.mouseOutHandler = this.mouseOutHandler.bind(this);
 		this.clickHandler = this.clickHandler.bind(this);
@@ -340,6 +378,7 @@ export default class Game {
 		this.canvas.height = this.container.clientHeight;
 	}
 	displayBlockInstructions(stage, block) {
+		console.log("displaying block instructions");
 		this.stage = stage;
 		this.block = block;
 		this.allowMessage = false;
@@ -372,6 +411,33 @@ export default class Game {
 	}
 	static loadContent(contentLoader, ...args) {
 		contentLoader(...args);
+	}
+	handleReconnectMessage() {
+		const breakDiv = document.createElement("div");
+		let breakText = "";
+		breakText = `<div align="center">
+				<h1> Reconnected </h1>
+				<p> 
+				It appears you refreshed the page. Please wait for the next trial/break to start!
+				</p>
+				</div>`;
+		breakDiv.className = "breakDiv";
+		breakDiv.style.position = "absolute";
+		breakDiv.style.top = "0";
+		breakDiv.style.left = "0";
+		breakDiv.style.width = "100%";
+		breakDiv.style.height = "100%";
+		breakDiv.style.display = "flex";
+		breakDiv.style.justifyContent = "center"; // Center horizontally
+		breakDiv.style.alignItems = "center"; // Center vertically
+		breakDiv.style.backgroundColor = "#808080"; // Semi-transparent black background
+		breakDiv.innerHTML = breakText;
+
+		// Append breakDiv to the document body or another parent element
+		document.body.appendChild(breakDiv); // Example: Append to body
+
+		// Optionally, you might want to return breakDiv if you need to manipulate or remove it later
+		return breakDiv;
 	}
 	resetDivs() {
 		this.divs.completed = [];
@@ -432,28 +498,10 @@ export default class Game {
 						case "sep":
 							this.block = "collab";
 							this.displayBlockInstructions(stage, this.block);
-							setTimeout(() => {
-								this.ws.send(
-									JSON.stringify({
-										stage: stage,
-										block: this.block,
-										type: "gameReady",
-									})
-								);
-							}, 30 * 1000);
 							break;
 						case "collab":
 							this.block = "sep";
 							this.displayBlockInstructions(stage, this.block);
-							setTimeout(() => {
-								this.ws.send(
-									JSON.stringify({
-										stage: stage,
-										block: this.block,
-										type: "gameReady",
-									})
-								);
-							}, 30 * 1000);
 					}
 					break;
 				case "endExp":
@@ -464,6 +512,9 @@ export default class Game {
 	}
 	beginBreak(blockType, block, data) {
 		this.allowMessage = false;
+		if (this.breakdiv) {
+			this.breakdiv.remove();
+		}
 		if (blockType === "game") {
 			if (block === "sep") {
 				document.removeEventListener("keyup", this.responseHandler);
@@ -473,7 +524,9 @@ export default class Game {
 				breakText = `<div align="center">
 				<h1> Break </h1>
 				<p> 
-				You have completed ${this.trialNo} of ${this.expConsts.blockLength} trials in this block. Please take a 6 second break.
+				You have completed ${this.state.trialNo + 1} of ${
+					this.expConsts.blockLength
+				} trials in this block. Please take a 6 second break.
 				</p>
 				<p>
 				You completed ${data.P1completed} out of 8 tasks in 6 seconds. <br>
@@ -506,10 +559,14 @@ export default class Game {
 				breakText = `<div align="center">
 				<h1> Break </h1>
 				<p> 
-				You have completed ${this.trialNo} of ${this.expConsts.blockLength} trials in this block. Please take a 6 second break.
+				You have completed ${this.state.trialNo + 1} of ${
+					this.expConsts.blockLength
+				} trials in this block. Please take a 6 second break.
 				</p>
 				<p>
-				You completed ${data.P1completed} tasks and your partner completed ${data.P2completed} tasks out of 8 <br>
+				You completed ${data.P1completed} tasks and your partner completed ${
+					data.P2completed
+				} tasks out of 8 <br>
 				in 6 seconds. <br>
 				You will have 6 seconds to complete the next trial
 				</p>
@@ -546,7 +603,9 @@ export default class Game {
 				breakText = `<div align="center">
 				<h1> Break </h1>
 				<p> 
-				You have completed ${this.trialNo} of 10 practice trials. Please take a 12 second break.
+				You have completed ${
+					this.state.trialNo + 1
+				} of 10 practice trials. Please take a 12 second break.
 				</p>
 				<p>
 				You completed ${data.P1completed} out of 8 tasks in 12 seconds. <br>
@@ -621,10 +680,14 @@ export default class Game {
 					breakText = `<div align="center">
 					<h1> Break </h1>
 					<p> 
-					You have completed ${this.trialNo} of 10 practice trials. Please take a 12 second break.
+					You have completed ${
+						this.state.trialNo + 1
+					} of 10 practice trials. Please take a 12 second break.
 					</p>
 					<p>
-					You completed ${data.P1completed} tasks and your partner completed ${data.P2completed} tasks out of 8 in 12 seconds. <br>
+					You completed ${data.P1completed} tasks and your partner completed ${
+						data.P2completed
+					} tasks out of 8 in 12 seconds. <br>
 					You will have 12 seconds to complete the next trial. 
 					</p>
 					</div>`;
@@ -657,10 +720,14 @@ export default class Game {
 					breakText = `<div align="center">
 					<h1> Break </h1>
 					<p> 
-					You have completed ${this.trialNo} of 10 practice trials. Please take a 6 second break.
+					You have completed ${
+						this.state.trialNo + 1
+					} of 10 practice trials. Please take a 6 second break.
 					</p>
 					<p>
-					You completed ${data.P1completed} tasks and your partner completed ${data.P2completed} tasks out of 8 in 6 seconds. <br>
+					You completed ${data.P1completed} tasks and your partner completed ${
+						data.P2completed
+					} tasks out of 8 in 6 seconds. <br>
 					You will have 6 seconds to complete the next trial. 
 					</p>
 					</div>`;
@@ -700,7 +767,9 @@ export default class Game {
 			breakText = `<div align="center">
 			<h1> Break </h1>
 			<p> 
-			You have completed ${this.trialNo} of 10 practice trials. Please take a short 20 second break.
+			You have completed ${
+				this.state.trialNo + 1
+			} of 10 practice trials. Please take a short 20 second break.
 			</p>
 			<p>
 			The next 5 trials will be completed with a partner. 
@@ -736,7 +805,9 @@ export default class Game {
 			let breakText = "";
 			breakText = `<div align="center">
 				<p> 
-				You have completed ${this.trialNo} of 40 trials. You are now halfway through the Experiment! Please take a short 30 second break.
+				You have completed ${
+					this.state.trialNo + 1
+				} of 40 trials. You are now halfway through the Experiment! Please take a short 30 second break.
 				</p>
 				<p>
 				You completed ${data.P1completed} tasks out of 8. <br>

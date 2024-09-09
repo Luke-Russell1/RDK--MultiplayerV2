@@ -208,7 +208,7 @@ async function loadSepInstructions(targetElementId, ws, messageHandler) {
 		console.error(`Target element with ID '${targetElementId}' not found.`);
 		return;
 	}
-
+	console.log("loading sep instructions");
 	// Insert SEP instructions HTML
 	targetElement.innerHTML = sepInstructionsHTML;
 
@@ -285,6 +285,7 @@ async function loadCollabInstructions(targetElementId, ws) {
 		console.error(`Target element with ID '${targetElementId}' not found.`);
 		return;
 	}
+	console.log("loading collab instructions");
 
 	// Insert collaboration instructions HTML
 	targetElement.innerHTML = collabInstructionsHTML;

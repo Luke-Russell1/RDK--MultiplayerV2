@@ -112,12 +112,12 @@ const expValues = {
 	block: ["sep", "collab"],
 	breakLength: 6,
 	dataPath: "/data/",
-	blockLength: 30,
+	blockLength: 2,
 	practiceTrials: 10,
-	practiceLength1: 12,
-	practiceLength2: 6,
-	practiceBreak1: 12,
-	practiceBreak2: 6,
+	practiceLength1: 1,
+	practiceLength2: 1,
+	practiceBreak1: 1,
+	practiceBreak2: 1,
 	gameNoPath: "/data/gameNo.txt",
 };
 /*
@@ -173,6 +173,8 @@ let state: State = {
 	P1RDK: deepCopy(baseRDK),
 	P2RDK: deepCopy(baseRDK),
 };
+let gameInProgress = false;
+let currentStage = {};
 /*
 Initialising variable we need ot track timestamps, arrays for data, and to control messaging for both players. 
 */
@@ -205,7 +207,6 @@ let trackingObject = {
 let trackingObjectCopy = deepCopy(trackingObject);
 let inactivityTimer: any;
 let timeoutDuration = 30 * 1000;
-
 /*
 functions start below here
 */
@@ -1029,6 +1030,7 @@ async function checkBlockCompleted(
 				type: "endBlock",
 				data: "endBlock",
 			});
+			currentStage = { stage: `${block}Instructions`, block: block };
 			await Promise.all([
 				sendMessage(connections.player1!, message),
 				sendMessage(connections.player2!, message),
@@ -1063,12 +1065,19 @@ async function checkBlockCompleted(
 			let endTime = new Date();
 			state.endTime = endTime.toISOString();
 			await writeData(dataArray, "B");
-			process.exit(0);
+			await resetVars();
 			return true;
 		} else {
 			return false;
 		}
 	}
+}
+async function resetVars() {
+	state = deepCopy(baseState);
+	trackingObject = deepCopy(trackingObjectCopy);
+	dataArray = [];
+	gameInProgress = false;
+	currentStage = "";
 }
 function calculateBreakInfo(state: State, player: "player1" | "player2") {
 	/*
@@ -1260,6 +1269,7 @@ async function startPracticeBreak(block: string) {
 			type: "practiceEnd",
 			data: blocks[0],
 		});
+		currentStage = { stage: `practiceEnd`, block: blocks[0] };
 		await Promise.all([
 			sendMessage(connections.player1!, message),
 			sendMessage(connections.player2!, message),
@@ -1406,6 +1416,8 @@ async function handleIntroductionMessaging(
 				const message = JSON.stringify({
 					stage: "practice",
 					message: "beginGame",
+					inProgress: false,
+					progresd: currentStage,
 				});
 				await Promise.all([
 					sendMessage(connections.player1!, message),
@@ -1440,6 +1452,8 @@ async function practiceSepMessaging(
 					data.stage,
 					data.block
 				);
+				currentStage = { stage: "practice", block: "sep" };
+				gameInProgress = true;
 				trackingObject.p1PracticeReady = false;
 				trackingObject.p2PracticeReady = false;
 				handlePracticeTrials(practiceTrialsDirections, "sep");
@@ -1516,6 +1530,7 @@ async function practiceCollabMessaging(
 					data.block
 				);
 				handlePracticeTrials(practiceTrialsDirections, "collab");
+				currentStage = { stage: "practice", block: "collab" };
 			}
 			break;
 		case "difficulty":
@@ -1621,6 +1636,7 @@ async function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
 					data.stage,
 					data.block
 				);
+				currentStage = { stage: "game", block: "collab" };
 				startTrials(data.block);
 				trackingObject.p1TrialReady = false;
 				trackingObject.p2TrialReady = false;
@@ -1713,6 +1729,7 @@ function gameSepMessaging(data: any, ws: WebSocket, connections: any) {
 					data.stage,
 					data.block
 				);
+				currentStage = { stage: "game", block: "sep" };
 				startTrials(data.block);
 			}
 			break;
@@ -1799,27 +1816,16 @@ async function transferConnection(connectionArray: Array<WebSocket>) {
 		);
 	}
 }
-async function handleExpEnd(state: State, dataArray: any) {
-	/*
-	Handles the end of the experiment. This is called when the players have completed the game trials. 
-	*/
-	state = resetStateonConnection(state);
-	dataArray = resetDataArray(dataArray);
-	trackingObject = deepCopy(trackingObjectCopy);
-	return { state, dataArray, trackingObject };
-}
 async function handleExpStart(state: State, dataArray: any) {
 	/*
 	Handles the start of the experiment. This is called when the players have completed the practice trials. 
 	*/
-	state = resetStateonConnection(state);
 	let startTime = new Date();
 	state.startTime = startTime.toISOString();
 	state.stage = "intro";
 	state.block = "consentForm";
 	state.RDK.coherence = shuffle(expValues.coherence);
 	dataArray = resetDataArray(dataArray);
-	trackingObject = deepCopy(trackingObjectCopy);
 	const message = JSON.stringify({ stage: "intro", type: "consentForm" });
 	await Promise.all([
 		sendMessage(connections.player1!, message),
@@ -1841,9 +1847,6 @@ async function handleInitialConnection(
 		}
 		connections.player1 = ws;
 		await sendMessage(connections.player1, message);
-		state.stage = "waitingRoom";
-		state.player1.connectTime = returnDateString();
-		trackingObject.p1Ready = true;
 		ping(ws);
 		dataArray.push(state);
 	} else if (player === "player2") {
@@ -1852,10 +1855,20 @@ async function handleInitialConnection(
 		}
 		connections.player2 = ws;
 		await sendMessage(connections.player2, message);
-		state.stage = "waitingRoom";
-		state.player2.connectTime = returnDateString();
-		trackingObject.p1Ready = true;
 		ping(ws);
+	}
+}
+async function handleReconnect(
+	ws: WebSocket,
+	player: "player1" | "player2",
+	message: any
+) {
+	if (player === "player1") {
+		connections.player1 = ws;
+		await sendMessage(connections.player1, message);
+	} else if (player === "player2") {
+		connections.player2 = ws;
+		await sendMessage(connections.player2, message);
 	}
 }
 async function handleExtraConnection(ws: WebSocket) {
@@ -1873,23 +1886,43 @@ function startInactivityTimer() {
 
 	// Set a new timeout to kill the process
 	inactivityTimer = setTimeout(() => {
-		process.exit(0); // Terminate the process
+		resetVars();
 	}, timeoutDuration);
 }
 wss.on("connection", async function (ws) {
 	if (connections.player1 === null) {
-		await handleInitialConnection("player1", ws);
+		if (gameInProgress === false) {
+			await handleInitialConnection("player1", ws);
+		} else {
+			const message = JSON.stringify({
+				stage: "practice",
+				inProgress: gameInProgress,
+				progress: currentStage,
+			});
+			await handleReconnect(ws, "player1", message);
+		}
 	} else if (connections.player2 === null) {
-		await handleInitialConnection("player2", ws);
+		if (gameInProgress === false) {
+			await handleInitialConnection("player2", ws);
+		} else {
+			const message = JSON.stringify({
+				stage: "practice",
+				inProgress: gameInProgress,
+				progress: currentStage,
+			});
+			await handleReconnect(ws, "player2", message);
+		}
 	} else {
 		await handleExtraConnection(ws);
 	}
 	if (connections.player1 && connections.player2) {
 		if (!testConsts.skipIntro) {
-			let returnData = await handleExpStart(state, dataArray);
-			state = returnData.state;
-			dataArray = returnData.dataArray;
-			trackingObject = returnData.trackingObject;
+			if (!gameInProgress) {
+				let returnData = await handleExpStart(state, dataArray);
+				state = returnData.state;
+				dataArray = returnData.dataArray;
+				trackingObject = returnData.trackingObject;
+			}
 		} else if (testConsts.skipIntro) {
 			trackingObject.p1SkipReady = true;
 			trackingObject.p2SkipReady = true;
@@ -1944,10 +1977,6 @@ wss.on("connection", async function (ws) {
 							trackingObject.p1endPageReached &&
 							trackingObject.p2endPageReached
 						) {
-							let returnData = await handleExpEnd(state, dataArray);
-							state = returnData.state;
-							dataArray = returnData.dataArray;
-							trackingObject = returnData.trackingObject;
 							setTimeout(() => {
 								// Check if player1 connection is still valid and open
 								if (connections.player1) {
