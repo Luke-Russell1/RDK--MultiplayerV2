@@ -18,7 +18,8 @@ export default class Game {
 		id,
 		platform,
 		inProgress,
-		currentStage
+		currentStage,
+		state
 	) {
 		/*
         Below setsup some of the initial variables for the game including the ids, 
@@ -26,8 +27,6 @@ export default class Game {
         */
 		this.ws = websocket;
 		console.log("Game created");
-		this.block = block;
-		this.stage = stage;
 		this.containerId = containerId;
 		this.id = id;
 		this.platform = platform;
@@ -43,9 +42,11 @@ export default class Game {
 		this.setBackgroundColor("#808080"); // Initial background color
 		this.container.appendChild(this.canvas);
 		this.resizeCanvas();
-		this.state = {};
+		this.state = state;
 		this.blockOrder = [];
 		if (!inProgress) {
+			this.stage = stage;
+			this.block = block;
 			this.ws.send(
 				JSON.stringify({
 					stage: this.stage,
@@ -74,10 +75,15 @@ export default class Game {
 					this.displayBlockInstructions(this.stage, this.block);
 					break;
 				case "practice":
+					this.stage = "practice";
+					this.block = currentStage.block;
 					this.breakdiv = this.handleReconnectMessage();
 					break;
 				case "game":
+					this.stage = "game";
+					this.block = currentStage.block;
 					this.breakdiv = this.handleReconnectMessage();
+
 					break;
 			}
 		}
@@ -491,6 +497,9 @@ export default class Game {
 		}
 	}
 	handleInstructionsBreak(stage, block, data) {
+		if (this.breakdiv) {
+			this.breakdiv.remove();
+		}
 		if (stage === "game") {
 			switch (data) {
 				case "endBlock":

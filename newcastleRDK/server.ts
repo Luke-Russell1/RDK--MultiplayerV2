@@ -112,12 +112,12 @@ const expValues = {
 	block: ["sep", "collab"],
 	breakLength: 6,
 	dataPath: "/data/",
-	blockLength: 2,
+	blockLength: 30,
 	practiceTrials: 10,
-	practiceLength1: 1,
-	practiceLength2: 1,
-	practiceBreak1: 1,
-	practiceBreak2: 1,
+	practiceLength1: 12,
+	practiceLength2: 6,
+	practiceBreak1: 12,
+	practiceBreak2: 6,
 	gameNoPath: "/data/gameNo.txt",
 };
 /*
@@ -302,7 +302,7 @@ function removeConnection(player: "player1" | "player2") {
 async function sendMessage(
 	connection: WebSocket,
 	message: string,
-	maxRetries: number = 5,
+	maxRetries: number = 10,
 	retryDelay: number = 100
 ): Promise<boolean> {
 	let attempt = 0;
@@ -1044,6 +1044,10 @@ async function checkBlockCompleted(
 	}
 	if (block === blocks[1]) {
 		if (state.trialNo === expValues.blockLength) {
+			let endTime = new Date();
+			state.endTime = endTime.toISOString();
+			await writeData(dataArray, "B");
+			await resetVars();
 			const p1Message = JSON.stringify({
 				stage: "game",
 				block: block,
@@ -1062,10 +1066,7 @@ async function checkBlockCompleted(
 				sendMessage(connections.player1!, p1Message),
 				sendMessage(connections.player2!, p2Message),
 			]);
-			let endTime = new Date();
-			state.endTime = endTime.toISOString();
-			await writeData(dataArray, "B");
-			await resetVars();
+
 			return true;
 		} else {
 			return false;
@@ -1073,6 +1074,12 @@ async function checkBlockCompleted(
 	}
 }
 async function resetVars() {
+	if (trialTimeout) {
+		clearTimeout(trialTimeout);
+	}
+	if (breakTimeout) {
+		clearTimeout(breakTimeout);
+	}
 	state = deepCopy(baseState);
 	trackingObject = deepCopy(trackingObjectCopy);
 	dataArray = [];
@@ -1127,11 +1134,13 @@ async function startTrials(block: string) {
 			sendMessage(connections.player2!, message),
 		]);
 
-		setTimeout(() => {
+		trialTimeout = setTimeout(() => {
 			startBreak(block);
 		}, expValues.trialLength * 1000);
 	} catch (error) {
-		console.error("Error in startTrials", error);
+		trialTimeout = setTimeout(() => {
+			startBreak(block);
+		}, expValues.trialLength * 1000);
 	}
 }
 
@@ -1166,14 +1175,16 @@ async function startBreak(block: string) {
 				sendMessage(connections.player1!, message1),
 				sendMessage(connections.player2!, message2),
 			]);
-			setTimeout(() => {
+			breakTimeout = setTimeout(() => {
 				startTrials(block);
 			}, expValues.breakLength * 1000);
 		} else {
 			return;
 		}
 	} catch (error) {
-		console.error("Error in startBreak", error);
+		breakTimeout = setTimeout(() => {
+			startTrials(block);
+		}, expValues.breakLength * 1000);
 	}
 }
 
@@ -1184,29 +1195,41 @@ async function handlePracticeTrials(
 	/*
 	Same as startTrials but for the practice trials.
 	*/
-	state = resetState(state, baseRDK, false);
-	timeStamp = Date.now();
-	state.P1RDK.direction = directions[state.trialNo];
-	state.P2RDK.direction = directions[state.trialNo];
-	state.RDK.direction = directions[state.trialNo];
-	const message = JSON.stringify({
-		stage: "practice",
-		block: block,
-		type: "startTrial",
-		data: state,
-	});
-	await Promise.all([
-		sendMessage(connections.player1!, message),
-		sendMessage(connections.player2!, message),
-	]);
-	if (state.trialNo < 7) {
-		trialTimeout = setTimeout(() => {
-			startPracticeBreak(block);
-		}, expValues.practiceLength1 * 1000);
-	} else {
-		trialTimeout = setTimeout(() => {
-			startPracticeBreak(block);
-		}, expValues.practiceLength2 * 1000);
+	try {
+		state = resetState(state, baseRDK, false);
+		timeStamp = Date.now();
+		state.P1RDK.direction = directions[state.trialNo];
+		state.P2RDK.direction = directions[state.trialNo];
+		state.RDK.direction = directions[state.trialNo];
+		const message = JSON.stringify({
+			stage: "practice",
+			block: block,
+			type: "startTrial",
+			data: state,
+		});
+		await Promise.all([
+			sendMessage(connections.player1!, message),
+			sendMessage(connections.player2!, message),
+		]);
+		if (state.trialNo < 7) {
+			trialTimeout = setTimeout(() => {
+				startPracticeBreak(block);
+			}, expValues.practiceLength1 * 1000);
+		} else {
+			trialTimeout = setTimeout(() => {
+				startPracticeBreak(block);
+			}, expValues.practiceLength2 * 1000);
+		}
+	} catch {
+		if (state.trialNo < 7) {
+			trialTimeout = setTimeout(() => {
+				startPracticeBreak(block);
+			}, expValues.practiceLength1 * 1000);
+		} else {
+			trialTimeout = setTimeout(() => {
+				startPracticeBreak(block);
+			}, expValues.practiceLength2 * 1000);
+		}
 	}
 }
 
@@ -1220,36 +1243,48 @@ async function startPracticeBreak(block: string) {
 		(block === "sep" && state.trialNo < 5) ||
 		(block === "collab" && state.trialNo < 10)
 	) {
-		// Calculate break info for each player
-		let p1BreakInfo = calculateBreakInfo(state, "player1");
-		let p2BreakInfo = calculateBreakInfo(state, "player2");
-		const p1Message = JSON.stringify({
-			stage: "practice",
-			block: block,
-			type: "break",
-			data: p1BreakInfo,
-		});
-		const p2Message = JSON.stringify({
-			stage: "practice",
-			block: block,
-			type: "break",
-			data: p2BreakInfo,
-		});
+		try {
+			// Calculate break info for each player
+			let p1BreakInfo = calculateBreakInfo(state, "player1");
+			let p2BreakInfo = calculateBreakInfo(state, "player2");
+			const p1Message = JSON.stringify({
+				stage: "practice",
+				block: block,
+				type: "break",
+				data: p1BreakInfo,
+			});
+			const p2Message = JSON.stringify({
+				stage: "practice",
+				block: block,
+				type: "break",
+				data: p2BreakInfo,
+			});
 
-		// Send break message after incrementing trialNo and scheduling next trial
-		await Promise.all([
-			sendMessage(connections.player1!, p1Message),
-			sendMessage(connections.player2!, p2Message),
-		]);
+			// Send break message after incrementing trialNo and scheduling next trial
+			await Promise.all([
+				sendMessage(connections.player1!, p1Message),
+				sendMessage(connections.player2!, p2Message),
+			]);
 
-		if (state.trialNo <= 7) {
-			setTimeout(() => {
-				handlePracticeTrials(practiceTrialsDirections, block);
-			}, expValues.practiceBreak1 * 1000);
-		} else {
-			setTimeout(() => {
-				handlePracticeTrials(practiceTrialsDirections, block);
-			}, expValues.practiceBreak2 * 1000);
+			if (state.trialNo <= 7) {
+				breakTimeout = setTimeout(() => {
+					handlePracticeTrials(practiceTrialsDirections, block);
+				}, expValues.practiceBreak1 * 1000);
+			} else {
+				breakTimeout = setTimeout(() => {
+					handlePracticeTrials(practiceTrialsDirections, block);
+				}, expValues.practiceBreak2 * 1000);
+			}
+		} catch {
+			if (state.trialNo <= 7) {
+				breakTimeout = setTimeout(() => {
+					handlePracticeTrials(practiceTrialsDirections, block);
+				}, expValues.practiceBreak1 * 1000);
+			} else {
+				breakTimeout = setTimeout(() => {
+					handlePracticeTrials(practiceTrialsDirections, block);
+				}, expValues.practiceBreak2 * 1000);
+			}
 		}
 	}
 	if (block === "sep" && state.trialNo === 5) {
@@ -1413,18 +1448,19 @@ async function handleIntroductionMessaging(
 				trackingObject.P1InstructionsFinished &&
 				trackingObject.P2InstructionsFinished
 			) {
+				state.stage = "practice";
+				state.block = "sep";
 				const message = JSON.stringify({
 					stage: "practice",
 					message: "beginGame",
 					inProgress: false,
-					progresd: currentStage,
+					progress: currentStage,
+					state: state,
 				});
 				await Promise.all([
 					sendMessage(connections.player1!, message),
 					sendMessage(connections.player2!, message),
 				]);
-				state.stage = "practice";
-				state.block = "sep";
 			}
 			break;
 	}
@@ -1885,9 +1921,7 @@ function startInactivityTimer() {
 	}
 
 	// Set a new timeout to kill the process
-	inactivityTimer = setTimeout(() => {
-		resetVars();
-	}, timeoutDuration);
+	resetVars();
 }
 wss.on("connection", async function (ws) {
 	if (connections.player1 === null) {
@@ -1898,6 +1932,7 @@ wss.on("connection", async function (ws) {
 				stage: "practice",
 				inProgress: gameInProgress,
 				progress: currentStage,
+				state: state,
 			});
 			await handleReconnect(ws, "player1", message);
 		}
@@ -1909,6 +1944,7 @@ wss.on("connection", async function (ws) {
 				stage: "practice",
 				inProgress: gameInProgress,
 				progress: currentStage,
+				state: state,
 			});
 			await handleReconnect(ws, "player2", message);
 		}
@@ -2022,11 +2058,11 @@ wss.on("connection", async function (ws) {
 		}
 	});
 
-	ws.on("close", () => {
+	ws.on("close", async () => {
 		if (connections.player1 === ws) removeConnection("player1");
 		else if (connections.player2 === ws) removeConnection("player2");
 		if (connections.player1 === null && connections.player2 === null) {
-			startInactivityTimer();
+			await resetVars();
 			dataArray.push(state);
 		}
 	});

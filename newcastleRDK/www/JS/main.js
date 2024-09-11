@@ -5,10 +5,18 @@ import {
 import { loadConsentForm } from "../Content/Forms/consentForm.js";
 import { loadInstructions } from "../Content/Forms/instructions.js";
 import Game from "./Game.js";
-
+const connectingHTML = `<div style="text-align: center;">
+<h2>Connecting</h2>
+<p>
+	connecting......<br>
+</p>
+</div>
+`;
 let id = "";
 let platform = "";
 document.addEventListener("DOMContentLoaded", () => {
+	let mainDiv = document.getElementById("main");
+	mainDiv.innerHTML = connectingHTML;
 	const wsURL = `ws://${window.location.host}${window.location.pathname}coms`;
 	const ws = new WebSocket(wsURL);
 	console.log("Connecting to the server...");
@@ -45,7 +53,8 @@ document.addEventListener("DOMContentLoaded", () => {
 					id,
 					origin,
 					message.inProgress,
-					message.progress
+					message.progress,
+					message.state
 				);
 				break;
 			case "game":

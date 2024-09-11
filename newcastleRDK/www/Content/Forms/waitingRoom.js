@@ -28,6 +28,7 @@ const waitingExpEndRoom = `
 function loadWaitingExpEndRoom(targetElementId) {
 	const targetElement = document.getElementById(targetElementId);
 	if (targetElement) {
+		targetElement.innerHTML = "";
 		targetElement.innerHTML = waitingExpEndRoom;
 	}
 }
