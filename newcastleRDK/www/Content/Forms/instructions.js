@@ -156,7 +156,7 @@ async function loadPracticeInstructions(targetElementId, ws) {
 		setTimeout(() => {
 			console.log("timer expired");
 			resolve();
-		}, 45 * 1000); // 30 seconds
+		}, 30 * 1000); // 30 seconds
 	});
 
 	try {
@@ -237,7 +237,7 @@ async function loadSepInstructions(targetElementId, ws, messageHandler) {
 		setTimeout(() => {
 			console.log("timer expired");
 			resolve();
-		}, 45 * 1000); // 30 seconds
+		}, 30 * 1000); // 30 seconds
 	});
 
 	try {
@@ -315,7 +315,7 @@ async function loadCollabInstructions(targetElementId, ws) {
 		setTimeout(() => {
 			console.log("timer expired");
 			resolve();
-		}, 45 * 1000); // 30 seconds
+		}, 30 * 1000); // 30 seconds
 	});
 
 	try {

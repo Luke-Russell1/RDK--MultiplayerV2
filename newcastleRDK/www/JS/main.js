@@ -14,6 +14,8 @@ const connectingHTML = `<div style="text-align: center;">
 `;
 let id = "";
 let platform = "";
+let lastPing = "";
+let GameTimeout;
 document.addEventListener("DOMContentLoaded", () => {
 	let mainDiv = document.getElementById("main");
 	mainDiv.innerHTML = connectingHTML;
@@ -25,9 +27,9 @@ document.addEventListener("DOMContentLoaded", () => {
 		let message = JSON.parse(event.data);
 		console.log(message);
 		switch (message.stage) {
-			case "heartbeat":
-				console.log("heartbeat");
-				ws.send(JSON.stringify({ stage: "heartbeat" }));
+			case "ping":
+				ws.send(JSON.stringify({ stage: "ping" }));
+				break;
 			case "waitingRoom":
 				loadWaitingRoom("main", ws);
 				break;
@@ -37,6 +39,10 @@ document.addEventListener("DOMContentLoaded", () => {
 			case "intro":
 				switch (message.type) {
 					case "consentForm":
+						GameTimeout = setTimeout(() => {
+							handleIdlePlayer(ws, origin);
+						}, 10 * 1000 * 60);
+						console.log(GameTimeout);
 						loadConsentForm("main", ws);
 						break;
 					case "instructions":
@@ -45,6 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
 				}
 				break;
 			case "practice":
+				clearTimeout(GameTimeout);
 				game = new Game(
 					"main",
 					ws,
@@ -89,3 +96,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	ws.onmessage = defaultWsOnMessage;
 });
+function handleIdlePlayer(ws, origin) {
+	if (origin === "Prolific") {
+		window.location.replace(
+			"https://app.prolific.com/submissions/complete?cc="
+		);
+	} else if (origin === "SONA") {
+		window.location.replace(
+			`https://newcastle.sona-systems.com/webstudy_credit.aspx?experiment_id=1754&credit_token=ae4e2ac4b9aa43e6ac66289fe0a48998&survey_code`
+		);
+	}
+}

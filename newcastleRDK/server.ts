@@ -1066,7 +1066,7 @@ async function checkBlockCompleted(
 				sendMessage(connections.player1!, p1Message),
 				sendMessage(connections.player2!, p2Message),
 			]);
-
+			await closeConnections();
 			return true;
 		} else {
 			return false;
@@ -1906,6 +1906,12 @@ async function handleReconnect(
 		connections.player2 = ws;
 		await sendMessage(connections.player2, message);
 	}
+}
+function closeConnections() {
+	connections.player1?.close();
+	connections.player1 = null;
+	connections.player2?.close();
+	connections.player2 = null;
 }
 async function handleExtraConnection(ws: WebSocket) {
 	/*

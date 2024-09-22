@@ -3,7 +3,7 @@ const waiitingRoom = `
     <h2>Waiting Room</h2>
     <p>
         We are currently waiting for another participant to join. The game will begin shortly. <br>
-        <b> Please do not refresh the page <b>
+        <b> If you feel you have been sitting for a while, try refreshing the page! <b>
     </p>
     </div>
     `;
