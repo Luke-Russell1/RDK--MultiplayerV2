@@ -8,12 +8,9 @@ import { WebSocket } from "ws";
 import path from "path";
 import { start } from "node:repl";
 import { send } from "node:process";
+import * as utils from "./utils";
 
 /*
-[X] Change server routing to redirect on end of exp
-[X] change WS management to remove an redirct
-[X] Write data when they land on the final page
-[X] add forced timeout
 
 PATH TO EXP:
 lukespirit.duckdns.org/lukespirit/
@@ -60,13 +57,6 @@ type screen = {
 	width: number;
 	height: number;
 };
-
-type mouseTracking = {
-	p1Screen: screen;
-	p2Screen: screen;
-	player1: mousePos;
-	player2: mousePos;
-};
 type State = {
 	startTime: string;
 	endTime: string;
@@ -97,7 +87,7 @@ type rdk = {
 	reactionTime: Array<Array<number>>;
 	timeStamp: Array<number>;
 };
-let mousePos: mouseTracking = {
+let mousePos: utils.mouseTracking = {
 	p1Screen: { width: 0, height: 0 },
 	p2Screen: { width: 0, height: 0 },
 	player1: { trialNo: 0, x: 0, y: 0, stage: "", block: "", timestamp: 0 },
@@ -129,7 +119,7 @@ const testConsts = {
 /*
 Base RDK is used to reset the state between trials and blocks. 
 */
-const baseRDK: rdk = {
+const baseRDK: utils.rdk = {
 	mostRecentChoice: "",
 	choice: [],
 	choiceTime: [0, 0, 0, 0, 0, 0, 0, 0],
@@ -146,7 +136,7 @@ const baseRDK: rdk = {
 	totalReactionTIme: [[], [], [], [], [], [], [], []],
 	timeStamp: [0, 0, 0, 0, 0, 0, 0, 0],
 };
-let state: State = {
+let state: utils.State = {
 	startTime: "",
 	endTime: "",
 	gameNo: 0,
@@ -169,9 +159,9 @@ let state: State = {
 		platform: "",
 	},
 	trialNo: 0,
-	RDK: deepCopy(baseRDK),
-	P1RDK: deepCopy(baseRDK),
-	P2RDK: deepCopy(baseRDK),
+	RDK: utils.deepCopy(baseRDK),
+	P1RDK: utils.deepCopy(baseRDK),
+	P2RDK: utils.deepCopy(baseRDK),
 };
 let gameInProgress = false;
 let currentStage = {};
@@ -184,7 +174,7 @@ let mouseArray: Array<any> = [];
 let practiceTrialsDirections: Array<Array<string>> = [];
 let trialsDirections: Array<Array<string>> = [];
 let timeStamp = 0;
-let baseState = deepCopy(state);
+let baseState = utils.deepCopy(state);
 let trialTimeout: NodeJS.Timeout | null = null;
 let breakTimeout: NodeJS.Timeout | null = null;
 let blocks: Array<string> = [];
@@ -204,7 +194,7 @@ let trackingObject = {
 	p1endPageReached: false,
 	p2endPageReached: false,
 };
-let trackingObjectCopy = deepCopy(trackingObject);
+let trackingObjectCopy = utils.deepCopy(trackingObject);
 let inactivityTimer: any;
 let timeoutDuration = 30 * 1000;
 /*
@@ -215,49 +205,14 @@ function saveTrialData(state: State, block: string) {
 	state.block = block;
 	dataArray.push(state);
 }
-function assignID() {
-	let id = Math.floor(Math.random() * 1000);
-	return id;
-}
-function deepCopy(obj: any) {
-	return JSON.parse(JSON.stringify(obj));
-}
-function checkID(id: number) {
-	if (usedIDS.includes(id)) {
-		let newID = assignID();
-		return newID;
-	} else {
-		return id;
-	}
-}
-function count(array: Array<any>, value: any) {
-	return array.filter((a) => a === value).length;
-}
-function createTimestamp(timestamp: number) {
-	let newTimestamp = Date.now();
-	let time = newTimestamp - timestamp;
-	return time;
-}
-function randomChoice(arr: Array<any>) {
-	let choicesArray = [];
-	let choice = arr[Math.floor(Math.random() * arr.length)];
-	choicesArray.push(choice);
-	return choice;
-}
-function splitIntoSubarrays(arr: Array<string>, subarrayLength: number) {
-	let result = [];
-	for (let i = 0; i < arr.length; i += subarrayLength) {
-		result.push(arr.slice(i, i + subarrayLength));
-	}
-	return result;
-}
+
 function chooseBlock(exp: string) {
 	/*
 	Chooses the blocks for both practice and exp trials. This is called once and then the block is used for the rest of the trials.
 	*/
 	if (exp === "exp") {
 		let blockArray = ["sep", "collab"];
-		let block = randomChoice(blockArray);
+		let block = utils.randomChoice(blockArray);
 		let blocks: Array<string> = [];
 		if (block === "sep") {
 			blocks = ["sep", "collab"];
@@ -354,7 +309,7 @@ async function chooseNewDirection(
 	switch (block) {
 		case "collab":
 			if (playerID === "player1") {
-				let direction = randomChoice(expValues.directions);
+				let direction = utils.randomChoice(expValues.directions);
 				state.P1RDK.direction[index] = direction;
 				let message = JSON.stringify({
 					stage: stage,
@@ -368,7 +323,7 @@ async function chooseNewDirection(
 				await sendState(state, "player1", stage, block);
 				await sendState(state, "player2", stage, block);
 			} else if (playerID === "player2") {
-				let direction = randomChoice(expValues.directions);
+				let direction = utils.randomChoice(expValues.directions);
 				state.P2RDK.direction[index] = direction;
 				const message = JSON.stringify({
 					stage: stage,
@@ -384,7 +339,7 @@ async function chooseNewDirection(
 			break;
 		case "sep":
 			if (playerID === "player1") {
-				let direction = randomChoice(expValues.directions);
+				let direction = utils.randomChoice(expValues.directions);
 				state.P1RDK.direction[index] = direction;
 				const message = JSON.stringify({
 					stage: stage,
@@ -396,7 +351,7 @@ async function chooseNewDirection(
 				await sendMessage(connections.player1!, message);
 				await sendState(state, "player1", stage, block);
 			} else if (playerID === "player2") {
-				let direction = randomChoice(expValues.directions);
+				let direction = utils.randomChoice(expValues.directions);
 				state.P2RDK.direction[index] = direction;
 				const message = JSON.stringify({
 					stage: stage,
@@ -431,7 +386,7 @@ async function sendState(
 		});
 		await sendMessage(connections.player1!, message);
 	} else if (playerID === "player2") {
-		let newState = deepCopy(state);
+		let newState = utils.deepCopy(state);
 		newState.P1RDK = state.P2RDK;
 		newState.P2RDK = state.P1RDK;
 		const message = JSON.stringify({
@@ -509,7 +464,7 @@ function updatePlayerMouseState(
 		newMousePos.player1.y = data.y;
 		newMousePos.player1.stage = stage;
 		newMousePos.player1.block = block;
-		newMousePos.player1.timestamp = createTimestamp(timeStamp);
+		newMousePos.player1.timestamp = utils.createTimestamp(timeStamp);
 		mouseArray.push(newMousePos);
 		let length = mouseArray.length;
 	}
@@ -521,7 +476,7 @@ function updatePlayerMouseState(
 		newMousePos.player2.y = data.y;
 		newMousePos.player2.stage = stage;
 		newMousePos.player2.block = block;
-		newMousePos.player2.timestamp = createTimestamp(timeStamp);
+		newMousePos.player2.timestamp = utils.createTimestamp(timeStamp);
 		mouseArray.push(newMousePos);
 	}
 }
@@ -595,11 +550,11 @@ function createTrials(state: State, blockType: string) {
 
 		for (let i = 0; i < trials; i++) {
 			for (let j = 0; j < coherences.length; j++) {
-				let direction = randomChoice(choices);
+				let direction = utils.randomChoice(choices);
 				trialsDirectionArray.push(direction);
 			}
 		}
-		let trialsDirections = splitIntoSubarrays(
+		let trialsDirections = utils.splitIntoSubarrays(
 			trialsDirectionArray,
 			coherences.length
 		);
@@ -613,11 +568,11 @@ function createTrials(state: State, blockType: string) {
 
 		for (let i = 0; i < trials; i++) {
 			for (let j = 0; j < coherences.length; j++) {
-				let direction = randomChoice(choices);
+				let direction = utils.randomChoice(choices);
 				trialsDirectionArray.push(direction);
 			}
 		}
-		let trialsDirections = splitIntoSubarrays(
+		let trialsDirections = utils.splitIntoSubarrays(
 			trialsDirectionArray,
 			coherences.length
 		);
@@ -654,8 +609,8 @@ async function handleRDKSelection(
 					state.P1RDK.choice.push(data);
 					state.P1RDK.mostRecentChoice = data;
 					state.P1RDK.choiceTime[data] = rt;
-					state.RDK.timeStamp[data] = createTimestamp(timeStamp);
-					state.P1RDK.timeStamp[data] = createTimestamp(timeStamp);
+					state.RDK.timeStamp[data] = utils.createTimestamp(timeStamp);
+					state.P1RDK.timeStamp[data] = utils.createTimestamp(timeStamp);
 					const loadMessage = JSON.stringify({
 						stage: stage,
 						type: "load",
@@ -677,8 +632,8 @@ async function handleRDKSelection(
 					state.P2RDK.choice.push(data);
 					state.P2RDK.choiceTime[data] = rt;
 					state.P2RDK.mostRecentChoice = data;
-					state.RDK.timeStamp[data] = createTimestamp(timeStamp);
-					state.P2RDK.timeStamp[data] = createTimestamp(timeStamp);
+					state.RDK.timeStamp[data] = utils.createTimestamp(timeStamp);
+					state.P2RDK.timeStamp[data] = utils.createTimestamp(timeStamp);
 					const loadMessage = JSON.stringify({
 						stage: stage,
 						type: "load",
@@ -720,7 +675,7 @@ async function handleRDKSelection(
 			if (player === "player1") {
 				state.P1RDK.choice.push(data);
 				state.P1RDK.choiceTime[data] = rt;
-				state.P1RDK.timeStamp[data] = createTimestamp(timeStamp);
+				state.P1RDK.timeStamp[data] = utils.createTimestamp(timeStamp);
 				state.P1RDK.mostRecentChoice = data;
 				const message = JSON.stringify({
 					stage: stage,
@@ -732,7 +687,7 @@ async function handleRDKSelection(
 			} else if (player === "player2") {
 				state.P2RDK.choiceTime[data] = rt;
 				state.P2RDK.choice.push(data);
-				state.P2RDK.timeStamp[data] = createTimestamp(timeStamp);
+				state.P2RDK.timeStamp[data] = utils.createTimestamp(timeStamp);
 				state.P2RDK.mostRecentChoice = data;
 				const message = JSON.stringify({
 					stage: stage,
@@ -957,16 +912,16 @@ function resetState(state: State, baseRDK: rdk, newBlock: boolean) {
 	*/
 	if (newBlock === true) {
 		let newState = Object.assign({}, state);
-		newState.RDK = deepCopy(baseRDK);
-		newState.P1RDK = deepCopy(baseRDK);
-		newState.P2RDK = deepCopy(baseRDK);
+		newState.RDK = utils.deepCopy(baseRDK);
+		newState.P1RDK = utils.deepCopy(baseRDK);
+		newState.P2RDK = utils.deepCopy(baseRDK);
 		newState.trialNo = 0;
 		return newState;
 	} else {
 		let newState = Object.assign({}, state);
-		newState.RDK = deepCopy(baseRDK);
-		newState.P1RDK = deepCopy(baseRDK);
-		newState.P2RDK = deepCopy(baseRDK);
+		newState.RDK = utils.deepCopy(baseRDK);
+		newState.P1RDK = utils.deepCopy(baseRDK);
+		newState.P2RDK = utils.deepCopy(baseRDK);
 		return newState;
 	}
 }
@@ -1080,8 +1035,8 @@ async function resetVars() {
 	if (breakTimeout) {
 		clearTimeout(breakTimeout);
 	}
-	state = deepCopy(baseState);
-	trackingObject = deepCopy(trackingObjectCopy);
+	state = utils.deepCopy(baseState);
+	trackingObject = utils.deepCopy(trackingObjectCopy);
 	dataArray = [];
 	gameInProgress = false;
 	currentStage = "";
@@ -1094,11 +1049,11 @@ function calculateBreakInfo(state: State, player: "player1" | "player2") {
 	let P2counts = 0;
 
 	if (player === "player1") {
-		P1counts = count(state.P1RDK.completed, true);
-		P2counts = count(state.P2RDK.completed, true);
+		P1counts = utils.count(state.P1RDK.completed, true);
+		P2counts = utils.count(state.P2RDK.completed, true);
 	} else if (player === "player2") {
-		P1counts = count(state.P2RDK.completed, true);
-		P2counts = count(state.P1RDK.completed, true);
+		P1counts = utils.count(state.P2RDK.completed, true);
+		P2counts = utils.count(state.P1RDK.completed, true);
 	}
 
 	let teamCompleted = P1counts + P2counts;
@@ -1149,9 +1104,9 @@ async function startBreak(block: string) {
 	Saves trial data and increments the trial number. If the block is not completed, it will calculate the break info and send it to the players.
 	Calls start trial assumming checkBlock doesn't return true.
 	*/
-	state.RDK.completionTime = createTimestamp(Date.now());
-	state.P1RDK.completionTime = createTimestamp(Date.now());
-	state.P2RDK.completionTime = createTimestamp(Date.now());
+	state.RDK.completionTime = utils.createTimestamp(Date.now());
+	state.P1RDK.completionTime = utils.createTimestamp(Date.now());
+	state.P2RDK.completionTime = utils.createTimestamp(Date.now());
 	saveTrialData(state, block);
 	state.trialNo += 1;
 	try {
