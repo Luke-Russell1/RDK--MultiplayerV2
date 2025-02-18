@@ -16,8 +16,8 @@ let id = "";
 let platform = "";
 let lastPing = "";
 let GameTimeout;
+let mainDiv = document.getElementById("main");
 document.addEventListener("DOMContentLoaded", () => {
-	let mainDiv = document.getElementById("main");
 	mainDiv.innerHTML = connectingHTML;
 	const wsURL = `ws://${window.location.host}${window.location.pathname}coms`;
 	const ws = new WebSocket(wsURL);
