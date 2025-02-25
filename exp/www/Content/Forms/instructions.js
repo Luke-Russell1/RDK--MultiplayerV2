@@ -79,24 +79,22 @@ and respect their time.  </p>
 `;
 let instructionEventListenerAttached = false;
 
-function loadInstructions(targetElementId, ws) {
+async function loadInstructions(targetElementId, ws) {
 	const targetElement = document.getElementById(targetElementId);
 	if (targetElement) {
 		targetElement.innerHTML = instructionsHTML;
 
 		// Ensure the event listener is not attached more than once
 		if (!instructionEventListenerAttached) {
-			const keyPressHandler = (event) => {
+			const keyPressHandler = async (event) => {
 				if (event.key === "Enter") {
-					loadPracticeInstructions(targetElementId, ws);
-					// Remove the event listener
 					document.removeEventListener("keyup", keyPressHandler);
-					instructionEventListenerAttached = false;
+					loadPracticeInstructions(targetElementId, ws);
 				}
 			};
 
 			// Add the event listener
-			document.addEventListener("keyup", keyPressHandler, { once: true });
+			document.addEventListener("keyup", keyPressHandler);
 			instructionEventListenerAttached = true;
 		}
 	} else {
@@ -130,44 +128,19 @@ async function loadPracticeInstructions(targetElementId, ws) {
 	// Insert practice instructions HTML
 	targetElement.innerHTML = practiceInstructionsHTML;
 
-	// Remove any existing event listener for keyup
-	if (practiceInstructionsHandler) {
-		document.removeEventListener("keyup", practiceInstructionsHandler);
-	}
-
 	// Define the event handler function
-	const enterKeyPromise = new Promise((resolve) => {
-		practiceInstructionsHandler = async (event) => {
-			if (event.key === "Enter") {
-				// Remove the event listener after handling
-				console.log("enter key pressed");
-				document.removeEventListener("keyup", practiceInstructionsHandler);
-				addWaitingMessage(targetElement);
-				// Resolve the promise
-				resolve();
-			}
-		};
-		// Add the event listener
-		document.addEventListener("keyup", practiceInstructionsHandler);
-	});
-
-	// Timer promise to handle timeout
-	const timerPromise = new Promise((resolve) => {
-		setTimeout(() => {
-			console.log("timer expired");
-			resolve();
-		}, 30 * 1000); // 30 seconds
-	});
-
-	try {
-		await Promise.race([enterKeyPromise, timerPromise]);
-		// Handle starting the experiment
-		await handleStartExperiment(ws);
-
-		// Create and insert the "waiting for other player" message
-	} catch (error) {
-		console.error("An error occurred:", error);
-	}
+	practiceInstructionsHandler = async (event) => {
+		if (event.key === "Enter") {
+			// Remove the event listener after handling
+			console.log("enter key pressed");
+			document.removeEventListener("keyup", practiceInstructionsHandler);
+			addWaitingMessage(targetElement);
+			await handleStartExperiment(ws);
+			// Resolve the promise
+		}
+	};
+	// Add the event listener
+	document.addEventListener("keyup", practiceInstructionsHandler);
 }
 
 async function handleStartExperiment(ws) {
