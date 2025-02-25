@@ -12,6 +12,13 @@ body {
   margin: 0;
   padding: 0;
 }
+canvas {
+  width: 800px;
+  height: 600px; 
+  background-color: "#808080";
+  
+
+}
 .end-of-experiment {
   text-align: center;
   width: 500px; /* Width of the square */
