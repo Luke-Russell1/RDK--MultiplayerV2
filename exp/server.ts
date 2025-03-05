@@ -8,7 +8,7 @@ import { WebSocket } from "ws";
 import path from "path";
 import { start } from "node:repl";
 import { send } from "node:process";
-import * as utils from "./utils";
+import * as utils from "./serverUtils";
 
 /*
 
@@ -36,57 +36,6 @@ const connections: {
 	player2: null,
 };
 let connectionArray: Array<WebSocket> = [];
-
-type Player = {
-	connectTime: any;
-	id: any;
-	age: number;
-	gender: string;
-	consent: boolean;
-	platform: string;
-};
-type mousePos = {
-	trialNo: number;
-	x: number;
-	y: number;
-	stage: string;
-	block: string;
-	timestamp: number;
-};
-type screen = {
-	width: number;
-	height: number;
-};
-type State = {
-	startTime: string;
-	endTime: string;
-	gameNo: number;
-	stage: "waitingRoom" | "intro" | "practice" | "game" | "end";
-	block: string;
-	player1: Player;
-	player2: Player;
-	RDK: rdk;
-	P1RDK: rdk;
-	P2RDK: rdk;
-	trialNo: number;
-};
-type rdk = {
-	mostRecentChoice: string;
-	choice: Array<number>;
-	choiceTime: Array<number>;
-	completed: Array<boolean>;
-	totalReactionTIme: Array<Array<number>>;
-	correct: Array<boolean>;
-	attempts: Array<number>;
-	player: Array<number>;
-	playerAttempts: Array<number>;
-	coherence: Array<number>;
-	direction: Array<any>;
-	incorrectDirection: Array<Array<string>>;
-	completionTime: number;
-	reactionTime: Array<Array<number>>;
-	timeStamp: Array<number>;
-};
 let mousePos: utils.mouseTracking = {
 	p1Screen: { width: 0, height: 0 },
 	p2Screen: { width: 0, height: 0 },
@@ -114,7 +63,7 @@ const expValues = {
 REMEBER TO REMOVE OR CHANGE THIS
 */
 const testConsts = {
-	skipIntro: false,
+	skipIntro: true,
 };
 /*
 Base RDK is used to reset the state between trials and blocks. 
@@ -201,7 +150,7 @@ let timeoutDuration = 30 * 1000;
 functions start below here
 */
 
-function saveTrialData(state: State, block: string) {
+function saveTrialData(state: utils.State, block: string) {
 	state.block = block;
 	dataArray.push(state);
 }
@@ -294,7 +243,7 @@ async function sendMessage(
 }
 
 async function chooseNewDirection(
-	state: State,
+	state: utils.State,
 	playerID: "player1" | "player2",
 	index: any,
 	stage: string,
@@ -368,7 +317,7 @@ async function chooseNewDirection(
 }
 // added change
 async function sendState(
-	state: State,
+	state: utils.State,
 	playerID: "player1" | "player2",
 	stage: string,
 	block: string
@@ -400,7 +349,7 @@ async function sendState(
 }
 async function beginGame(
 	directions: Array<string>,
-	state: State,
+	state: utils.State,
 	stage: string,
 	block: string
 ) {
@@ -535,7 +484,7 @@ function returnDateString() {
 	return dateString;
 }
 
-function createTrials(state: State, blockType: string) {
+function createTrials(state: utils.State, blockType: string) {
 	/*
 	This creates the trials for the experiments, assigning directions for each 
 	coherence value for each trial. This is pushes to trialsDirectionArray
@@ -581,7 +530,7 @@ function createTrials(state: State, blockType: string) {
 		return [["error"]];
 	}
 }
-function hasBeenSelected(state: State, data: any) {
+function hasBeenSelected(state: utils.State, data: any) {
 	if (state.RDK.choice.includes(data)) {
 		return true;
 	} else {
@@ -592,7 +541,7 @@ async function handleRDKSelection(
 	player: "player1" | "player2",
 	data: any,
 	rt: any,
-	state: State,
+	state: utils.State,
 	stage: string,
 	block: string
 ) {
@@ -701,7 +650,7 @@ async function handleRDKSelection(
 	}
 }
 function updateCollabStateOnResponse(
-	state: State,
+	state: utils.State,
 	player: "player1" | "player2",
 	correct: boolean,
 	id: any,
@@ -756,7 +705,7 @@ async function checkResponse(
 	player: "player1" | "player2",
 	data: string,
 	id: any,
-	state: State,
+	state: utils.State,
 	rt: number,
 	totalRt: number,
 	stage: string,
@@ -895,7 +844,7 @@ async function checkResponse(
 			break;
 	}
 }
-function resetStateonConnection(data: State) {
+function resetStateonConnection(data: utils.State) {
 	let gameNo = data.gameNo;
 	let newState = Object.assign({}, baseState);
 	newState.gameNo = gameNo;
@@ -906,7 +855,7 @@ function resetDataArray(data: Array<any>) {
 	return newData;
 }
 
-function resetState(state: State, baseRDK: rdk, newBlock: boolean) {
+function resetState(state: utils.State, baseRDK: utils.rdk, newBlock: boolean) {
 	/*
 	Used to reset the state between trials and blocks.
 	*/
@@ -927,7 +876,7 @@ function resetState(state: State, baseRDK: rdk, newBlock: boolean) {
 }
 
 function checkCompleted(
-	state: State,
+	state: utils.State,
 	block: string,
 	player: "player1" | "player2" | null
 ) {
@@ -955,7 +904,7 @@ function checkCompleted(
 	}
 }
 function endTrialEarly(
-	state: State,
+	state: utils.State,
 	block: string,
 	player: "player1" | "player2" | null
 ) {
@@ -969,7 +918,7 @@ function endTrialEarly(
 	}
 }
 async function checkBlockCompleted(
-	state: State,
+	state: utils.State,
 	block: string,
 	blocks: Array<string>
 ) {
@@ -1041,7 +990,7 @@ async function resetVars() {
 	gameInProgress = false;
 	currentStage = "";
 }
-function calculateBreakInfo(state: State, player: "player1" | "player2") {
+function calculateBreakInfo(state: utils.State, player: "player1" | "player2") {
 	/*
 	Calculates info to display on the break screen, switching it to show the correct info for each player. 
 	*/
@@ -1405,17 +1354,10 @@ async function handleIntroductionMessaging(
 			) {
 				state.stage = "practice";
 				state.block = "sep";
-				const message = JSON.stringify({
-					stage: "practice",
-					message: "beginGame",
-					inProgress: false,
-					progress: currentStage,
-					state: state,
-				});
-				await Promise.all([
-					sendMessage(connections.player1!, message),
-					sendMessage(connections.player2!, message),
-				]);
+				practiceTrialsDirections = createTrials(state, "practice");
+				trialsDirections = createTrials(state, "exp");
+				blocks = chooseBlock("exp");
+				handlePracticeTrials(practiceTrialsDirections, "sep");
 			}
 			break;
 	}
@@ -1447,7 +1389,6 @@ async function practiceSepMessaging(
 				gameInProgress = true;
 				trackingObject.p1PracticeReady = false;
 				trackingObject.p2PracticeReady = false;
-				handlePracticeTrials(practiceTrialsDirections, "sep");
 			}
 			break;
 		case "difficulty":
@@ -1807,7 +1748,7 @@ async function transferConnection(connectionArray: Array<WebSocket>) {
 		);
 	}
 }
-async function handleExpStart(state: State, dataArray: any) {
+async function handleExpStart(state: utils.State, dataArray: any) {
 	/*
 	Handles the start of the experiment. This is called when the players have completed the practice trials. 
 	*/
@@ -1924,9 +1865,12 @@ wss.on("connection", async function (ws) {
 			trackingObject.p1SkipReady = true;
 			trackingObject.p2SkipReady = true;
 			if (trackingObject.p1SkipReady && trackingObject.p2SkipReady) {
-				state = resetStateonConnection(state);
-				state.RDK.coherence = shuffle(expValues.coherence);
-				skipToBlock("game", "sep");
+				state.stage = "practice";
+				state.block = "sep";
+				practiceTrialsDirections = createTrials(state, "practice");
+				trialsDirections = createTrials(state, "exp");
+				blocks = chooseBlock("exp");
+				handlePracticeTrials(practiceTrialsDirections, "sep");
 			}
 		}
 	}
@@ -1935,6 +1879,7 @@ wss.on("connection", async function (ws) {
 	});
 	ws.on("message", async function message(m) {
 		const data = JSON.parse(m.toString("utf-8"));
+		console.log(data);
 		if (data.type === "heartbeat") {
 			console.log("connection alive");
 		}

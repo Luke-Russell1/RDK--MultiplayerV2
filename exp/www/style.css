@@ -1,23 +1,45 @@
-/* style.css */
 #main {
-  width: 100vw; /* 100% of the viewport width */
-  height: 100vh; /* 100% of the viewport height */
+  position: relative; /* Makes the #main div the reference point for absolute positioning */
+  width: 100vw; /* Full viewport width */
+  height: 100vh; /* Full viewport height */
   margin: 0;
-  padding: 0; 
-  box-sizing: border-box; /* Optional: Ensures padding and border don't affect dimensions */
-  border: 1px solid #000; /* Optional: Border for visual distinction */
-  background-color: #808080; /* change background color here */
+  padding: 0;
+  box-sizing: border-box;
+  background-color: #808080; /* Background color of the parent */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid #000;
 }
+
+#content {
+  position: absolute; /* Position absolutely within the #main div */
+  top: 50%; /* Move to the center vertically */
+  left: 50%; /* Move to the center horizontally */
+  transform: translate(-50%, -50%); /* Offset the div to center it */
+  width: 900px;
+  height: 700px;
+  border: 2px solid red;
+  background-color: #808080;
+  z-index: 1; /* Content div goes behind canvas */
+}
+
+canvas {
+  position: absolute; /* Position canvas absolutely within the #main div */
+  top: 50%; /* Move canvas to the center vertically */
+  left: 50%; /* Move canvas to the center horizontally */
+  transform: translate(-50%, -50%); /* Offset the canvas to center it */
+  width: 150px;
+  height: 150px;
+  background-color: #808080; /* Background color of the canvas (can be transparent) */
+  border: 1px solid purple;
+  z-index: 2; /* Canvas goes on top of content div */
+  display: none;
+}
+
 body {
   margin: 0;
   padding: 0;
-}
-canvas {
-  width: 800px;
-  height: 600px; 
-  background-color: "#808080";
-  
-
 }
 .end-of-experiment {
   text-align: center;

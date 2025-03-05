@@ -2,6 +2,8 @@
 This file contains the HTML for the instructions that are displayed to the user at the start of the experiment and during each block. 
 MAY NEED TO ADD A REDIRECT FOR PROLIFIC OR SONA PARTICIPANTS AT THE END, DEPENDING ON HOW THE EXPERIMENT IS BEING RUN
 */
+let instructionDiv;
+let minInstructionTime = 2 * 1000;
 async function addWaitingMessage(targetElement) {
 	const waitingMessage = document.createElement("p");
 	waitingMessage.innerText = "Waiting for other player...";
@@ -74,29 +76,28 @@ The experiment will take roughly 30 minutes to complete. </p>
 While we encourage you to take your time to read and understand these instructions, we also encourage you to consider the other person completing the experiment with you <br>
 and respect their time.  </p>
 <p> We appreciate your participation</p>
-<p> Please press enter to view the practice instructions </p>
 </div>
 `;
-let instructionEventListenerAttached = false;
-
 async function loadInstructions(targetElementId, ws) {
 	const targetElement = document.getElementById(targetElementId);
 	if (targetElement) {
 		targetElement.innerHTML = instructionsHTML;
-
+		instructionDiv = targetElement.querySelector(".instructions");
 		// Ensure the event listener is not attached more than once
-		if (!instructionEventListenerAttached) {
-			const keyPressHandler = async (event) => {
-				if (event.key === "Enter") {
-					document.removeEventListener("keyup", keyPressHandler);
-					loadPracticeInstructions(targetElementId, ws);
-				}
-			};
+		const keyPressHandler = async (event) => {
+			if (event.key === "Enter") {
+				document.removeEventListener("keyup", keyPressHandler);
+				loadPracticeInstructions(targetElementId, ws);
+			} else {
+				return;
+			}
+		};
 
-			// Add the event listener
+		// Add the event listener
+		setTimeout(async () => {
+			instructionDiv.innerHTML += `<p style="text-align: center;">Please press enter to continue to the next instructions page</p>`;
 			document.addEventListener("keyup", keyPressHandler);
-			instructionEventListenerAttached = true;
-		}
+		}, minInstructionTime);
 	} else {
 		console.error(`Target element with ID '${targetElementId}' not found.`);
 	}
@@ -112,7 +113,6 @@ Here, you will use the mouse to select a task by clicking on it, then responding
 If you respond incorrectly, there will be a 500ms delay before you can respond again. Tasks you have completed, or that your partner have completed will be greyed out.<br> </p>
 <p>
 Please try and complete each task as quickly and accurately as possible. <br>
-Please press enter to begin the practice block.
 </p>
 </div>
 `;
@@ -127,7 +127,7 @@ async function loadPracticeInstructions(targetElementId, ws) {
 
 	// Insert practice instructions HTML
 	targetElement.innerHTML = practiceInstructionsHTML;
-
+	instructionDiv = targetElement.querySelector(".practiceInstructions");
 	// Define the event handler function
 	practiceInstructionsHandler = async (event) => {
 		if (event.key === "Enter") {
@@ -140,7 +140,10 @@ async function loadPracticeInstructions(targetElementId, ws) {
 		}
 	};
 	// Add the event listener
-	document.addEventListener("keyup", practiceInstructionsHandler);
+	setTimeout(async () => {
+		instructionDiv.innerHTML += `<p style="text-align: center;">Please press enter to continue to the practice trials</p>`;
+		document.addEventListener("keyup", practiceInstructionsHandler);
+	}, minInstructionTime * 1000);
 }
 
 async function handleStartExperiment(ws) {
@@ -195,7 +198,6 @@ async function loadSepInstructions(targetElementId, ws, messageHandler) {
 		const sepInstructionsHandler = async (event) => {
 			if (event.key === "Enter") {
 				// Remove the event listener
-				console.log("enter key pressed");
 				document.removeEventListener("keyup", sepInstructionsHandler);
 				// Resolve the promise
 				resolve();
@@ -253,6 +255,13 @@ Remember to select the difficulty by clicking, and responding with "Z" for left 
 let collabInstructionsHandler;
 
 async function loadCollabInstructions(targetElementId, ws) {
+	/* 
+	Do I really need to have the promise.race condition here? I wonder if I can get around that
+	by removing the {once} tag on the event listener it should just fire fine? 
+
+	Maybe I should add a part where there is an overall timeout to protect against people just waiting there 
+	at the start and being a dick
+	*/
 	const targetElement = document.getElementById(targetElementId);
 	if (!targetElement) {
 		console.error(`Target element with ID '${targetElementId}' not found.`);
@@ -262,11 +271,6 @@ async function loadCollabInstructions(targetElementId, ws) {
 
 	// Insert collaboration instructions HTML
 	targetElement.innerHTML = collabInstructionsHTML;
-
-	// Remove any existing event listener for keydown
-	if (collabInstructionsHandler) {
-		document.removeEventListener("keydown", collabInstructionsHandler);
-	}
 
 	// Define the event handler function
 	const enterKeyPromise = new Promise((resolve) => {
@@ -365,7 +369,7 @@ function handleRedirect(ws, platform, id) {
 		);
 	} else if (platform === "") {
 		const queryParams = new URLSearchParams(window.location.search);
-		const urlPlatform = queryParms.get(origin);
+		const urlPlatform = queryParams.get(origin);
 		const urlID = queryParams.get(survey_code);
 		if (urlPlatform === "Prolific" || urlPlatform === "prolific") {
 			window.location.replace(
