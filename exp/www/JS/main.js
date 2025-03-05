@@ -9,6 +9,7 @@ import {
 	loadEndGame,
 	loadInstructions,
 } from "../Content/Forms/instructions.js";
+import * as utils from "./clientUtils.js";
 const connectingHTML = `<div style="text-align: center;">
 <h2>Connecting</h2>
 <p>
@@ -30,8 +31,10 @@ const expConsts = {
 	blockBreak: 20,
 	breakDuration: 10,
 	blockLength: 30,
+	imgDim: "100px",
+	imgDiam: 100,
 };
-
+let choiceTimestamp;
 const images = [
 	"Content/Images/rdk_static1.png",
 	"Content/Images/rdk_static2.png",
@@ -55,7 +58,7 @@ const coherenceDifficulties = {
 };
 
 // for stimuli and images
-let img = preloadImages(images);
+let img = utils.preloadImages(images);
 let divs = {
 	uncompleted: [],
 	completed: [],
@@ -84,16 +87,24 @@ let mousePos = {
 	x: 0,
 	y: 0,
 };
+let rAF;
 
 // Server shit
 let mainDiv = document.getElementById("main");
 let canvas = document.getElementById("Canvas");
+let contentDiv = document.getElementById("content");
+const contentDivSpecs = {
+	radius: Math.min(contentDiv.offsetWidth, contentDiv.offsetHeight) / 2.75,
+	centerX: contentDiv.offsetWidth / 2,
+	centerY: contentDiv.offsetHeight / 2,
+};
 let ctx = canvas.getContext("2d");
+let breakdiv;
 const wsURL = `ws://${window.location.host}${window.location.pathname}coms`;
 const ws = new WebSocket(wsURL);
 
 document.addEventListener("DOMContentLoaded", () => {
-	mainDiv.innerHTML = connectingHTML;
+	contentDiv.innerHTML = connectingHTML;
 	console.log("Connecting to the server...");
 });
 
@@ -107,10 +118,10 @@ ws.onopen = () => {
 				ws.send(JSON.stringify({ stage: "ping" }));
 				break;
 			case "heartbeat":
-				this.ws.send(JSON.stringify({ stage: "heartbeat" }));
+				ws.send(JSON.stringify({ stage: "heartbeat" }));
 				break;
 			case "waitingRoom":
-				loadWaitingRoom("main", ws);
+				loadWaitingRoom("content", ws);
 				break;
 			case "waitingExpEndRoom":
 				loadWaitingExpEndRoom("main", ws);
@@ -130,8 +141,14 @@ ws.onopen = () => {
 				break;
 			case "practice":
 				switch (message.type) {
-					case "initialState":
+					case "startTrial":
 						state = message.data;
+						console.log(state);
+						utils.clearContainer(contentDiv);
+						createImages(img, content);
+						handleDivInteraction(divs.uncompleted);
+
+						break;
 				}
 				break;
 		}
@@ -155,54 +172,7 @@ async function handleQueryParams() {
 		type: "participantInfo",
 		data: infoData,
 	});
-	await sendMessage(ws, message);
-}
-async function sendMessage(ws, message) {
-	try {
-		await retryMessage(ws, message);
-		return true; // Return true if the message was sent successfully
-	} catch (error) {
-		// Log and rethrow the final error if retries are exhausted
-		console.error("Final error sending message:", error);
-		throw error;
-	}
-}
-async function retryMessage(ws, message, maxRetries = 4, retryDelay = 1000) {
-	let attempts = 0;
-
-	while (attempts < maxRetries) {
-		try {
-			// Attempt to send the message
-			await new Promise((resolve, reject) => {
-				ws.send(message, (error) => {
-					if (error) {
-						reject(error); // Reject the promise if there's an error
-					} else {
-						resolve(); // Resolve the promise if successful
-					}
-				});
-			});
-			// If successful, return true
-			return true;
-		} catch (error) {
-			attempts++;
-			if (attempts >= maxRetries) {
-				// If maximum attempts reached, throw the error
-				console.error(
-					`Failed to send message after ${maxRetries} attempts: ${error}`
-				);
-				throw error;
-			}
-			// Log the error and retry after a delay
-			console.error(
-				`Error sending message, retrying... (attempt ${attempts}/${maxRetries}): ${error}`
-			);
-			await new Promise((resolve) => setTimeout(resolve, retryDelay));
-		}
-	}
-
-	// This line will never be reached due to the throw in the catch block
-	return false;
+	await utils.sendMessage(ws, message);
 }
 
 function handleIdlePlayer(ws, origin) {
@@ -216,34 +186,157 @@ function handleIdlePlayer(ws, origin) {
 		);
 	}
 }
-function preloadImages(imageList) {
-	let imgArray = [];
-	imageList.forEach((image) => {
-		const img = new Image();
-		img.src = image;
-		imgArray.push(img);
-	});
-	return imgArray;
-}
-function clearContainer() {
-	const container = document.getElementById(this.containerId);
-	// Use Array.from to safely iterate over the NodeList
-	Array.from(container.childNodes).forEach((child) => {
-		// Check if the child is not a canvas
-		if (child.nodeName != "CANVAS") {
-			// Remove the child from the container
-			container.removeChild(child);
-		}
-	});
-}
 function displayBlockInstructions(stage, block) {
 	console.log("displaying block instructions");
 	stage = stage;
 	block = block;
 	allowMessage = false;
 	if (block === "sep") {
-		loadSepInstructions("main", this.ws);
+		loadSepInstructions("main", ws);
 	} else if (block === "collab") {
-		loadCollabInstructions("main", this.ws);
+		loadCollabInstructions("main", ws);
+	}
+}
+function stopAnimation() {
+	cancelAnimationFrame(rAF);
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+function createImages(images, container) {
+	if (breakdiv) {
+		breakdiv.remove();
+	}
+	stopAnimation();
+
+	// Assuming contentDivSpecs contains radius, centerX, and centerY
+	const { radius, centerX, centerY } = contentDivSpecs;
+
+	// Update pixel positions to use polar coordinates for circular positioning
+	for (let i = 0; i < Object.keys(coherenceDifficulties).length; i++) {
+		const div = document.createElement("div");
+		const img = images[i];
+
+		let coherence = state.RDK.coherence[i];
+		let difficulty = coherenceDifficulties[coherence];
+
+		// Set image size
+		img.style.width = expConsts.imgDim;
+		img.style.height = expConsts.imgDim;
+
+		// Set div to absolute positioning
+		div.style.position = "absolute";
+		div.style.width = expConsts.imgDim;
+		div.style.height = expConsts.imgDim;
+
+		// Polar coordinates for circular positioning
+		const angle = (i / Object.keys(coherenceDifficulties).length) * 2 * Math.PI;
+		const x = centerX + radius * Math.cos(angle) - expConsts.imgDiam / 2; // Subtract half image width to center it
+		const y = centerY + radius * Math.sin(angle) - expConsts.imgDiam / 2; // Subtract half image height to center it
+
+		// Position the div
+		div.style.left = `${x}px`;
+		div.style.top = `${y}px`;
+
+		// Assign id, append image, and other functionality
+		div.id = i;
+		div.appendChild(img);
+		divs.uncompleted.push(div); // Store reference to the div
+		displayDifficultyText(div, difficulty, i); // Display difficulty text
+		container.appendChild(div);
+	}
+}
+function displayDifficultyText(parentDiv, difficulty, id) {
+	const difficultyText = document.createElement("div");
+	difficultyText.textContent = difficulty;
+	difficultyText.style.position = "absolute";
+	difficultyText.style.bottom = "-20px"; // Adjust to position under the image div
+	difficultyText.style.width = "100%"; // Full width
+	difficultyText.style.textAlign = "center"; // Center text horizontally
+	difficultyText.style.fontSize = "18px";
+	difficultyText.id = id;
+	parentDiv.appendChild(difficultyText);
+}
+function handleDivInteraction(divList) {
+	for (let div of divList) {
+		div.addEventListener("mouseover", mouseOverHandler);
+		div.addEventListener("mouseout", mouseOutHandler);
+		div.addEventListener("click", clickHandler);
+	}
+}
+function mouseOverHandler(event) {
+	event.currentTarget.style.border = "1px solid white";
+}
+
+function mouseOutHandler(event) {
+	event.currentTarget.style.border = "none";
+}
+
+function clickHandler(event) {
+	if (divs.uncompleted.includes(event.currentTarget)) {
+		let choiceEndTime = utils.createTimestamp(choiceTimestamp);
+		event.currentTarget.style.border = "none";
+		ws.send(
+			JSON.stringify({
+				stage: stage,
+				block: block,
+				type: "difficulty",
+				difficulty: event.currentTarget.id,
+				rt: choiceEndTime,
+			})
+		);
+	} else {
+		restoreImages(divs);
+	}
+}
+function restoreImages(divObj) {
+	if (currentlyCompleting) {
+		return;
+	} else {
+		restoreCompletedImages(divObj);
+		restoreUncompletedImages(divObj);
+		choiceStartTime = performance.now();
+	}
+}
+function restoreCompletedImages(divObj) {
+	for (let div of divObj.completed) {
+		if (!div) {
+			console.warn("Skipped null or undefined div.");
+			continue;
+		}
+		removeEventListeners(div);
+
+		div.style.opacity = 0.5;
+
+		const img = div.querySelector("img");
+		if (img) {
+			img.style.display = "block";
+		} else {
+			console.warn("Image element not found in div", div);
+		}
+
+		const difficultyText = div.querySelector("div");
+		if (difficultyText) {
+			difficultyText.style.display = "block";
+		} else {
+			console.warn("Difficulty text not found in div", div);
+		}
+	}
+}
+function restoreUncompletedImages(divObj) {
+	for (let div of divObj.uncompleted) {
+		div.style.opacity = 1;
+		let difficultyText = div.querySelector("div");
+
+		if (difficultyText) {
+			difficultyText.style.display = "block";
+		}
+	}
+	handleDivInteraction(divObj.uncompleted);
+}
+function removeEventListeners(div) {
+	document.removeEventListener("keyup", responseHandler);
+	if (div && div.parentNode) {
+		div.removeEventListener("mouseover", mouseOverHandler);
+		div.removeEventListener("mouseout", mouseOutHandler);
+		div.removeEventListener("click", clickHandler);
 	}
 }

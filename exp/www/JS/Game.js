@@ -170,8 +170,6 @@ export default class Game {
 			let data = JSON.parse(event.data);
 			console.log(data);
 			switch (data.stage) {
-				case "heartbeat":
-					this.ws.send(JSON.stringify({ stage: "heartbeat" }));
 				case "practice":
 					switch (data.type) {
 						case "initialState":
