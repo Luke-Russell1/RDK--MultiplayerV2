@@ -66,7 +66,11 @@ export function preloadImages(imageList) {
 	return imgArray;
 }
 export function createTimestamp(timestamp) {
-	let newTime = Date.now();
+	let newTime = performance.now();
 	let diff = newTime - timestamp;
 	return diff;
+}
+export function seededRandom(seed) {
+	let x = Math.sin(seed++) * 10000;
+	return x - Math.floor(x);
 }

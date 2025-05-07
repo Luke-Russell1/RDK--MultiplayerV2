@@ -45,7 +45,7 @@ let mousePos: utils.mouseTracking = {
 
 const expValues = {
 	trials: 60,
-	trialLength: 6,
+	trialLength: 60,
 	coherence: [0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9],
 	directions: ["left", "right"],
 	block: ["sep", "collab"],
