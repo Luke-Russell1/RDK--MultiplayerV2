@@ -121,7 +121,7 @@ class RDK {
 		this.ctx.fillStyle = "#808080";
 		this.ctx.fill();
 		this.ctx.strokeStyle = "black"; // Set border color
-		this.ctx.lineWidth = 0.5; // Optionally, set the border width
+		this.ctx.lineWidth = this.expConsts.apertureWidth; // Optionally, set the border width
 		this.ctx.stroke();
 		this.ctx.closePath();
 	}
@@ -260,6 +260,7 @@ class RDK {
 	async generateDotMotionAperture(direction, divPos) {
 		// Clear previous drawings
 		try {
+			this.div.style.display = "none";
 			this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 			const centerX = divPos.x;
 			const centerY = divPos.y;
@@ -558,14 +559,11 @@ function updateExpConsts() {
 	// Optionally, scale other constants if needed
 	expConsts.apertureRad = expConsts.imgDiam * 0.5; // Example: aperture radius is 40% of the image size
 	expConsts.dotRad = baseSize * 0.01; // Example: dot radius is 2% of the image size
+	expConsts.apertureWidth = expConsts.apertureRad * 0.02; // Example: aperture width is 20% of the radius
+	expConsts.dotSpeed = expConsts.apertureRad * 0.04; // Example: dot speed is 50% of the aperture width
 	canvas.width = mainDiv.clientWidth;
 	canvas.height = mainDiv.clientHeight;
-	console.log(
-		canvas.width,
-		canvas.height,
-		mainDiv.clientWidth,
-		mainDiv.clientHeight
-	);
+	console.log(expConsts.apertureRad);
 
 	console.log("Updated expConsts:", expConsts);
 }
@@ -593,10 +591,11 @@ const connectingHTML = `<div style="text-align: center;">
 </div>
 `;
 const expConsts = {
-	dotRad: 2,
-	apertureRad: 60,
+	dotRad: 0,
+	apertureRad: 0,
+	apertureWidth: 0,
 	dotColor: "rgb(255,255,255)",
-	dotSpeed: 2.5,
+	dotSpeed: 0,
 	nDots: 100,
 	coherence: [0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9],
 	directions: [0, 1],
