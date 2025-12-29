@@ -3,12 +3,12 @@ import { clear, time } from "node:console";
 import exp from "node:constants";
 import { create } from "node:domain";
 import fs, { write } from "node:fs";
-import { Server as WSServer } from "ws";
+import { WebSocketServer as WSServer } from "ws";
 import { WebSocket } from "ws";
 import path from "path";
 import { start } from "node:repl";
 import { send } from "node:process";
-import * as utils from "./serverUtils";
+import * as utils from "./serverUtils.ts";
 
 /*
 
