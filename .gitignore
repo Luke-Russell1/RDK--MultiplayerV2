@@ -1,4 +1,4 @@
-node_modules/*
+exp/node_modules/*
 package-lock.json
 .DS_Store
 .Rproj.user
