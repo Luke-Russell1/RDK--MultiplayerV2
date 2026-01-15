@@ -8,4 +8,4 @@ RUN npm install
 
 EXPOSE 3000
 ENTRYPOINT ["/usr/bin/bash", "-c"]
-CMD ["npx ts-node server.ts"]
+CMD ["npx ts-node server/server.ts"]
