@@ -2,8 +2,8 @@ import express from "express";
 import fs from "node:fs";
 import { WebSocketServer as WSServer } from "ws";
 import { WebSocket } from "ws";
-import path from "path";
-import { fileURLToPath } from 'url';
+import path from "node:path";
+import { fileURLToPath } from 'node:url';
 import * as utils from "./serverUtils";
 import * as types from "./types";
 import * as comms from "./communication"
@@ -45,6 +45,18 @@ const server = app.listen(port, () => {
 // Set up the WebSocket server with the HTTP server
 const wss = new WSServer({ server, path: "/coms" });
 
+class Server{
+  expVals:any
+  constructor(expVals:any){
+    this.expVals = expVals
+
+  }
+  private connections: types.connection = {
+    player1: null, 
+    player2: null
+  }
+
+}
 let connections: types.connection = {
   player1: null, 
   player2: null
@@ -64,7 +76,7 @@ const expValues = {
   practiceBreak1: 12,
   practiceBreak2: 6,
   gameNoPath: "/data/gameNo.txt",
-};
+}
 /*
 REMEBER TO REMOVE OR CHANGE THIS
 */

@@ -336,13 +336,15 @@ class imageDivs {
 		divSpecs,
 		container,
 		difficulties,
-		choiceStartTime
+		choiceStartTime, 
+		state
 	) {
 		this.images = this.preloadImages(imgs);
 		this.divs = {
 			uncompleted: [],
 			completed: [],
 		};
+		this.state = state // this can be updated whenever
 		this.container = container;
 		this.contentDivSpecs = divSpecs;
 		this.experimentConsts = consts;
@@ -425,10 +427,11 @@ class imageDivs {
 		if (this.divs.uncompleted.includes(event.currentTarget)) {
 			let choiceEndTime = utils.createTimestamp(this.choiceStartTime);
 			event.currentTarget.style.border = "none";
+			console.log(this.state)
 			ws.send(
 				JSON.stringify({
-					stage: state.stage,
-					block: state.block,
+					stage: this.state.stage,
+					block: this.state.block,
 					type: "difficulty",
 					difficulty: event.currentTarget.id,
 					rt: choiceEndTime,
@@ -477,14 +480,13 @@ class imageDivs {
 			div.removeEventListener("click", this.clickHandler);
 		}
 	}
-	async startTrial(coherences) {
+	async startTrial() {
 		try {
-			divHandler.coherences = coherences;
-			divHandler.choiceStartTime = performance.now();
-			divHandler.createImages();
-			divHandler.handleDivInteraction();
-		} catch {
-			console.error("Issue in starting trial");
+			this.choiceStartTime = performance.now();
+			this.createImages();
+			this.handleDivInteraction();
+		} catch (error) {
+			console.error(error);
 		}
 	}
 	getDivPos(divID) {
@@ -564,8 +566,6 @@ function updateExpConsts() {
 	canvas.width = mainDiv.clientWidth;
 	canvas.height = mainDiv.clientHeight;
 	console.log(expConsts.apertureRad);
-
-	console.log("Updated expConsts:", expConsts);
 }
 let mainDiv = document.getElementById("main");
 let canvas = document.getElementById("Canvas");
@@ -687,6 +687,8 @@ ws.onopen = () => {
 				break;
 			case "waitingRoom":
 				loadWaitingRoom("content", ws);
+				divHandler.startTrial()
+
 				break;
 			case "waitingExpEndRoom":
 				loadWaitingExpEndRoom("main", ws);
