@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { WebSocketServer as WSServer } from "ws";
 import { WebSocket } from "ws";
 import path from "path";
+import { fileURLToPath } from 'url';
 import * as utils from "./serverUtils";
 import * as types from "./types";
 import * as comms from "./communication"
@@ -14,13 +15,36 @@ lukespirit.duckdns.org/lukespirit/
 PATH TO DATA:
 lukespirit.duckdns.org/data/
 */
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+let live = false;
 const app = express();
 const port = 3000;
-app.use(express.static("client"));
-const server = app.listen(port, () => {
-  console.log("Server started on http://localhost:" + port);
+
+// Remove CSP in development
+app.use((req, res, next) => {
+  if (!live) {
+    // Don't set CSP in development
+  }
+  next();
 });
+
+// Serve static files from the 'client' directory (one level up from server folder)
+app.use(express.static(path.join(__dirname, '../client')));
+
+// Serve index.html for root route
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client', 'index.html'));
+});
+
+// Start the HTTP server
+const server = app.listen(port, () => {
+  console.log(`Server started on http://localhost:${port}`);
+});
+
+// Set up the WebSocket server with the HTTP server
 const wss = new WSServer({ server, path: "/coms" });
+
 let connections: types.connection = {
   player1: null, 
   player2: null
@@ -1276,20 +1300,13 @@ async function practiceCollabMessaging(
         );
       break;
     case "destroy":
-      connections.player1?.send(
-        JSON.stringify({
+      const message = JSON.stringify({
           stage: "game",
           block: blocks[0],
           message: "instructions",
-        }),
-      );
-      connections.player2?.send(
-        JSON.stringify({
-          stage: "game",
-          block: blocks[0],
-          message: "instructions",
-        }),
-      );
+        })
+      comms.sendMessage(connections.player1!, message)
+      comms.sendMessage(connections.player1!, message)
       state = resetState(state, baseRDK, true);
       state.stage = "game";
       state.block = blocks[0];
@@ -1300,11 +1317,7 @@ async function gameCollabMessaging(data: any, ws: WebSocket, connections: types.
   const player: "player1"|"player2" = ws === connections.player1 ? "player1":"player2"
   switch (data.type) {
     case "instructionsComplete":
-      if (connections.player1 === ws) {
-        trackingObject.p1TrialReady = true;
-      } else if (connections.player2 === ws) {
-        trackingObject.p2TrialReady = true;
-      }
+      connections.player1 === ws ? trackingObject.p1TrialReady = true : trackingObject.p2TrialReady = true;
       if (trackingObject.p1TrialReady && trackingObject.p2TrialReady) {
         state = resetState(state, baseRDK, true);
         await beginGame(
