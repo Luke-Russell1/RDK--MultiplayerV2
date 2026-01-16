@@ -1,13 +1,8 @@
 import express from "express";
-import { clear, time } from "node:console";
-import exp from "node:constants";
-import { create } from "node:domain";
-import fs, { write } from "node:fs";
+import fs from "node:fs";
 import { WebSocketServer as WSServer } from "ws";
 import { WebSocket } from "ws";
 import path from "path";
-import { start } from "node:repl";
-import { send } from "node:process";
 import * as utils from "./serverUtils";
 import * as types from "./types";
 import * as comms from "./communication"
@@ -21,27 +16,15 @@ lukespirit.duckdns.org/data/
 */
 const app = express();
 const port = 3000;
-
 app.use(express.static("client"));
-
 const server = app.listen(port, () => {
   console.log("Server started on http://localhost:" + port);
 });
-
 const wss = new WSServer({ server, path: "/coms" });
-
 let connections: types.connection = {
   player1: null, 
   player2: null
 }
-let connectionArray: Array<WebSocket> = [];
-let mousePos: types.mouseTracking = {
-  p1Screen: { width: 0, height: 0 },
-  p2Screen: { width: 0, height: 0 },
-  player1: { trialNo: 0, x: 0, y: 0, stage: "", block: "", timestamp: 0 },
-  player2: { trialNo: 0, x: 0, y: 0, stage: "", block: "", timestamp: 0 },
-};
-
 const expValues = {
   trials: 60,
   trialLength: 60,
@@ -193,14 +176,7 @@ function shuffle(arr: Array<any>) {
   }
   return arr;
 }
-function removeConnection(player: "player1" | "player2") {
-  if (player === "player1") {
-    connections.player1 = null;
-  }
-  if (player === "player2") {
-    connections.player2 = null;
-  }
-}
+
 async function chooseNewDirection(
   state: types.State,
   playerID: "player1" | "player2",
@@ -275,37 +251,6 @@ async function chooseNewDirection(
   }
 }
 // added change
-async function sendState(
-  state: types.State,
-  playerID: "player1" | "player2",
-  stage: string,
-  block: string,
-) {
-  /*
-  Sends the state to both players. On the client side both players are P1, so if the ws matches P1 it will send the state to the player.
-  If it matches P2 it will switch the state to so P2 appears as P1 and then sends that transformed state.
-  */
-  if (playerID === "player1") {
-    const message = JSON.stringify({
-      stage: stage,
-      block: block,
-      type: "state",
-      data: state,
-    });
-    await comms.sendMessage(connections.player1!, message);
-  } else if (playerID === "player2") {
-    let newState = structuredClone(state);
-    newState.P1RDK = state.P2RDK;
-    newState.P2RDK = state.P1RDK;
-    const message = JSON.stringify({
-      stage: stage,
-      block: block,
-      type: "state",
-      data: newState,
-    });
-    await comms.sendMessage(connections.player2!, message);
-  }
-}
 async function beginGame(
   directions: Array<string>,
   state: types.State,
@@ -344,68 +289,6 @@ async function beginGame(
         comms.sendMessage(connections.player1!, sepMessage),
         comms.sendMessage(connections.player2!, sepMessage),
       ]);
-  }
-}
-function updatePlayerMouseState(
-  stage: string,
-  block: string,
-  playerID: "player1" | "player2",
-  dimensions: { width: number; height: number },
-  data: { x: number; y: number },
-) {
-  /*
-  Updates the mouse position for the player. It records the trial number, the x and y position of the mouse, the stage and block, and the timestamp.
-  This deep copies the base mousePos state, and then writes it to the mouseData array whenever called.
-  */
-  const newMousePos = {
-    player1: { ...mousePos.player1 },
-    p1Screen: { ...mousePos.p1Screen },
-    p2Screen: { ...mousePos.p2Screen },
-    player2: { ...mousePos.player2 },
-  };
-
-  if (playerID === "player1") {
-    newMousePos.player1.trialNo = state.trialNo;
-    newMousePos.p1Screen.height = dimensions.height;
-    newMousePos.p1Screen.width = dimensions.width;
-    newMousePos.player1.x = data.x;
-    newMousePos.player1.y = data.y;
-    newMousePos.player1.stage = stage;
-    newMousePos.player1.block = block;
-    newMousePos.player1.timestamp = utils.createTimestamp(timeStamp);
-    mouseArray.push(newMousePos);
-    let length = mouseArray.length;
-  }
-  if (playerID === "player2") {
-    newMousePos.player1.trialNo = state.trialNo;
-    newMousePos.p2Screen.height = dimensions.height;
-    newMousePos.p2Screen.width = dimensions.width;
-    newMousePos.player2.x = data.x;
-    newMousePos.player2.y = data.y;
-    newMousePos.player2.stage = stage;
-    newMousePos.player2.block = block;
-    newMousePos.player2.timestamp = utils.createTimestamp(timeStamp);
-    mouseArray.push(newMousePos);
-  }
-}
-
-function writeMouse(data: any, suffix: "A" | "B") {
-  /*
-  Function for writing the mouse data to a file. File name will include the game number.
-  */
-  try {
-    // Convert the data object to a JSON string
-    const dataString = JSON.stringify(data, null, 2); // Indent JSON for readability
-
-    // Define the filename and path
-    const filename = `game${state.gameNo}${suffix}mouse.json`;
-    const path = `${expValues.dataPath}${filename}`;
-
-    // Write the JSON string to a file
-    fs.writeFileSync(path, dataString, "utf8");
-  } catch (error) {
-    // Handle errors (e.g., file system errors)
-    console.error(`Failed to write data to ${expValues.dataPath}:`, error);
   }
 }
 async function writeData(data: any, suffix: "A" | "B" | "C") {
@@ -1245,8 +1128,6 @@ async function handleIntroductionMessaging(
   connections: types.connection,
   data: any,
 ) {
-  const socket = utils.findPlayerSocket(ws, connections)
-
   switch (type) {
     case "consent":
       if (connections.player1 === ws) {
@@ -1298,8 +1179,9 @@ async function handleIntroductionMessaging(
 async function practiceSepMessaging(
   data: any,
   ws: WebSocket,
-  connections: any,
+  connections: types.connection,
 ) {
+  const player: "player1"|"player2" = ws === connections.player1 ? "player1":"player2"
   switch (data.type) {
     case "instructionsComplete":
       if (connections.player1 === ws) {
@@ -1324,30 +1206,17 @@ async function practiceSepMessaging(
       }
       break;
     case "difficulty":
-      if (ws === connections.player1) {
         handleRDKSelection(
-          "player1",
+          player,
           data.difficulty,
           data.rt,
           state,
           data.stage,
-          data.block,
-        );
-      } else if (ws === connections.player2) {
-        handleRDKSelection(
-          "player2",
-          data.difficulty,
-          data.rt,
-          state,
-          data.stage,
-          data.block,
-        );
-      }
+          data.block)    
       break;
     case "response":
-      if (ws === connections.player1) {
-        checkResponse(
-          "player1",
+      checkResponse(
+          player,
           data.data,
           data.index,
           state,
@@ -1356,29 +1225,16 @@ async function practiceSepMessaging(
           data.stage,
           data.block,
         );
-        checkCompleted(state, data.block, "player1");
-      }
-      if (ws === connections.player2) {
-        checkResponse(
-          "player2",
-          data.data,
-          data.index,
-          state,
-          data.rt,
-          data.totalRt,
-          data.stage,
-          data.block,
-        );
-        checkCompleted(state, data.block, "player2");
-      }
+        checkCompleted(state, data.block, player);
       break;
   }
 }
 async function practiceCollabMessaging(
   data: any,
   ws: WebSocket,
-  connections: any,
+  connections: types.connection,
 ) {
+  const player: "player1"|"player2" = ws === connections.player1 ? "player1":"player2"
   switch (data.type) {
     case "gameReady":
       if (connections.player1 === ws) {
@@ -1398,49 +1254,18 @@ async function practiceCollabMessaging(
       }
       break;
     case "difficulty":
-      if (ws === connections.player1) {
-        handleRDKSelection(
-          "player1",
+      handleRDKSelection(
+          player,
           data.difficulty,
           data.rt,
           state,
           data.stage,
           data.block,
         );
-      } else if (ws === connections.player2) {
-        handleRDKSelection(
-          "player2",
-          data.difficulty,
-          data.rt,
-          state,
-          data.stage,
-          data.block,
-        );
-      }
-      break;
-    case "mousePos":
-      if (ws === connections.player1) {
-        updatePlayerMouseState(
-          data.stage,
-          data.block,
-          "player1",
-          data.dimmensions,
-          data.data,
-        );
-      } else if (ws === connections.player2) {
-        updatePlayerMouseState(
-          data.stage,
-          data.block,
-          "player2",
-          data.dimmensions,
-          data.data,
-        );
-      }
       break;
     case "response":
-      if (ws === connections.player1) {
-        checkResponse(
-          "player1",
+      checkResponse(
+          player,
           data.data,
           data.index,
           state,
@@ -1449,19 +1274,6 @@ async function practiceCollabMessaging(
           data.stage,
           data.block,
         );
-      }
-      if (ws === connections.player2) {
-        checkResponse(
-          "player2",
-          data.data,
-          data.index,
-          state,
-          data.rt,
-          data.totalRt,
-          data.stage,
-          data.block,
-        );
-      }
       break;
     case "destroy":
       connections.player1?.send(
@@ -1484,7 +1296,8 @@ async function practiceCollabMessaging(
       break;
   }
 }
-async function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
+async function gameCollabMessaging(data: any, ws: WebSocket, connections: types.connection) {
+  const player: "player1"|"player2" = ws === connections.player1 ? "player1":"player2"
   switch (data.type) {
     case "instructionsComplete":
       if (connections.player1 === ws) {
@@ -1507,49 +1320,18 @@ async function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
       }
       break;
     case "difficulty":
-      if (ws === connections.player1) {
-        await handleRDKSelection(
-          "player1",
+       handleRDKSelection(
+          player,
           data.difficulty,
           data.rt,
           state,
           data.stage,
           data.block,
         );
-      } else if (ws === connections.player2) {
-        await handleRDKSelection(
-          "player2",
-          data.difficulty,
-          data.rt,
-          state,
-          data.stage,
-          data.block,
-        );
-      }
-      break;
-    case "mousePos":
-      if (ws === connections.player1) {
-        updatePlayerMouseState(
-          data.stage,
-          data.block,
-          "player1",
-          data.dimmensions,
-          data.data,
-        );
-      } else if (ws === connections.player2) {
-        updatePlayerMouseState(
-          data.stage,
-          data.block,
-          "player2",
-          data.dimmensions,
-          data.data,
-        );
-      }
       break;
     case "response":
-      if (ws === connections.player1) {
-        await checkResponse(
-          "player1",
+      await checkResponse(
+          player,
           data.data,
           data.index,
           state,
@@ -1558,23 +1340,11 @@ async function gameCollabMessaging(data: any, ws: WebSocket, connections: any) {
           data.stage,
           data.block,
         );
-      }
-      if (ws === connections.player2) {
-        await checkResponse(
-          "player2",
-          data.data,
-          data.index,
-          state,
-          data.rt,
-          data.totalRt,
-          data.stage,
-          data.block,
-        );
-      }
       break;
   }
 }
-function gameSepMessaging(data: any, ws: WebSocket, connections: any) {
+function gameSepMessaging(data: any, ws: WebSocket, connections: types.connection) {
+  const player: "player1"|"player2" = ws === connections.player1 ? "player1":"player2"
   switch (data.type) {
     case "instructionsComplete":
       if (connections.player1 === ws) {
@@ -1598,30 +1368,18 @@ function gameSepMessaging(data: any, ws: WebSocket, connections: any) {
       }
       break;
     case "difficulty":
-      if (ws === connections.player1) {
-        handleRDKSelection(
-          "player1",
+      handleRDKSelection(
+          player,
           data.difficulty,
           data.rt,
           state,
           data.stage,
           data.block,
         );
-      } else if (ws === connections.player2) {
-        handleRDKSelection(
-          "player2",
-          data.difficulty,
-          data.rt,
-          state,
-          data.stage,
-          data.block,
-        );
-      }
       break;
     case "response":
-      if (ws === connections.player1) {
-        checkResponse(
-          "player1",
+      checkResponse(
+          player,
           data.data,
           data.index,
           state,
@@ -1630,54 +1388,8 @@ function gameSepMessaging(data: any, ws: WebSocket, connections: any) {
           data.stage,
           data.block,
         );
-        checkCompleted(state, data.block, "player1");
-      }
-      if (ws === connections.player2) {
-        checkResponse(
-          "player2",
-          data.data,
-          data.index,
-          state,
-          data.rt,
-          data.totalRt,
-          data.stage,
-          data.block,
-        );
-        checkCompleted(state, data.block, "player2");
-      }
+        checkCompleted(state, data.block, player);
       break;
-  }
-}
-function ping(ws: WebSocket) {
-  setInterval(() => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ stage: "ping" }));
-    }
-  }, 20 * 1000);
-}
-async function transferConnection(connectionArray: Array<WebSocket>) {
-  /*
-  Transfers the connection from the waiting room to the game when spots become available
-  */
-  try {
-    if (connectionArray.length > 1) {
-      if (connections.player1 === null && connections.player2 === null) {
-        connections.player1 = connectionArray[0];
-        await handleInitialConnection("player1", connections.player1);
-        connections.player2 = connectionArray[1];
-        await handleInitialConnection("player2", connections.player2);
-        connectionArray.splice(0, 2);
-        let returnedData = await handleExpStart(state, dataArray);
-        state = returnedData.state;
-        dataArray = returnedData.dataArray;
-        trackingObject = returnedData.trackingObject;
-      }
-    }
-  } catch (error) {
-    console.error(
-      "Error during connection transfer or experiment start:",
-      error,
-    );
   }
 }
 async function handleExpStart(state: types.State, dataArray: any) {
@@ -1711,7 +1423,7 @@ async function handleInitialConnection(
     }
     connections.player1 = ws;
     await comms.sendMessage(connections.player1, message);
-    ping(ws);
+    comms.ping(ws);
     dataArray.push(state);
   } else if (player === "player2") {
     if (inactivityTimer) {
@@ -1719,10 +1431,13 @@ async function handleInitialConnection(
     }
     connections.player2 = ws;
     await comms.sendMessage(connections.player2, message);
-    ping(ws);
+    comms.ping(ws);
   }
 }
 async function handleReconnect(
+  /* 
+  THIS NEEDS TO BE PROPERLY IMPROVED. THIS IS A SHIT VERSION OF IT. 
+  */
   ws: WebSocket,
   player: "player1" | "player2",
   message: any,
@@ -1741,166 +1456,149 @@ function closeConnections() {
   connections.player2?.close();
   connections.player2 = null;
 }
-async function handleExtraConnection(ws: WebSocket) {
-  /*
-  Handles the extra connection of the player. This is called when the player connects to the server.
-  */
-  let message = JSON.stringify({ stage: "waitingExpEndRoom" });
-  connectionArray.push(ws);
-  await comms.sendMessage(ws, message);
-}
-function startInactivityTimer() {
-  if (inactivityTimer) {
-    clearTimeout(inactivityTimer);
-  }
-
   // Set a new timeout to kill the process
-  wss.on("connection", async function (ws) {
-    if (connections.player1 === null) {
-      if (gameInProgress === false) {
-        await handleInitialConnection("player1", ws);
-      } else {
-        const message = JSON.stringify({
-          stage: "practice",
-          inProgress: gameInProgress,
-          progress: currentStage,
-          state: state,
-        });
-        await handleReconnect(ws, "player1", message);
-      }
-    } else if (connections.player2 === null) {
-      if (gameInProgress === false) {
-        await handleInitialConnection("player2", ws);
-      } else {
-        const message = JSON.stringify({
-          stage: "practice",
-          inProgress: gameInProgress,
-          progress: currentStage,
-          state: state,
-        });
-        await handleReconnect(ws, "player2", message);
-      }
+wss.on("connection", async function (ws) {
+  if (connections.player1 === null) {
+    if (gameInProgress === false) {
+      await handleInitialConnection("player1", ws);
     } else {
-      await handleExtraConnection(ws);
+      const message = JSON.stringify({
+        stage: "practice",
+        inProgress: gameInProgress,
+        progress: currentStage,
+        state: state,
+      });
+      await handleReconnect(ws, "player1", message);
     }
-    if (connections.player1 && connections.player2) {
-      if (!testConsts.skipIntro) {
-        if (!gameInProgress) {
-          let returnData = await handleExpStart(state, dataArray);
-          state = returnData.state;
-          dataArray = returnData.dataArray;
-          trackingObject = returnData.trackingObject;
-        }
-      } else if (testConsts.skipIntro) {
-        trackingObject.p1SkipReady = true;
-        trackingObject.p2SkipReady = true;
-        if (trackingObject.p1SkipReady && trackingObject.p2SkipReady) {
-          state.stage = "practice";
-          state.block = "sep";
-          practiceTrialsDirections = createTrials(state, "practice");
-          trialsDirections = createTrials(state, "exp");
-          blocks = chooseBlock("exp");
-          handlePracticeTrials(practiceTrialsDirections, "sep");
-        }
+  } else if (connections.player2 === null) {
+    if (gameInProgress === false) {
+      await handleInitialConnection("player2", ws);
+    } else {
+      const message = JSON.stringify({
+        stage: "practice",
+        inProgress: gameInProgress,
+        progress: currentStage,
+        state: state,
+      });
+      await handleReconnect(ws, "player2", message);
+    }
+  }
+  if (connections.player1 && connections.player2) {
+    if (!testConsts.skipIntro) {
+      if (!gameInProgress) {
+        let returnData = await handleExpStart(state, dataArray);
+        state = returnData.state;
+        dataArray = returnData.dataArray;
+        trackingObject = returnData.trackingObject;
+      }
+    } else if (testConsts.skipIntro) {
+      trackingObject.p1SkipReady = true;
+      trackingObject.p2SkipReady = true;
+      if (trackingObject.p1SkipReady && trackingObject.p2SkipReady) {
+        state.stage = "practice";
+        state.block = "sep";
+        practiceTrialsDirections = createTrials(state, "practice");
+        trialsDirections = createTrials(state, "exp");
+        blocks = chooseBlock("exp");
+        handlePracticeTrials(practiceTrialsDirections, "sep");
       }
     }
-    ws.on("pong", () => {
-      console.log("connection alive");
-    });
-    ws.on("message", async function message(m) {
-      const data = JSON.parse(m.toString("utf-8"));
-      console.log(data);
-      if (data.type === "heartbeat") {
-        console.log("connection alive");
-      }
-      switch (data.stage) {
-        case "intro":
-          handleIntroductionMessaging(data.type, ws, connections, data.data);
-          break;
-        case "practice":
-          switch (data.block) {
-            case "sep":
-              practiceSepMessaging(data, ws, connections);
-              break;
-            case "collab":
-              practiceCollabMessaging(data, ws, connections);
-              break;
-          }
-          break;
-        case "game":
-          switch (data.block) {
-            case "collab":
-              gameCollabMessaging(data, ws, connections);
-              break;
-            case "sep":
-              gameSepMessaging(data, ws, connections);
-              break;
-          }
-          break;
-        case "end":
-          switch (data.type) {
-            case "pageReached":
-              if (ws === connections.player1) {
-                trackingObject.p1endPageReached = true;
-              } else if (ws === connections.player2) {
-                trackingObject.p2endPageReached = true;
-              }
-              if (
-                trackingObject.p1endPageReached &&
-                trackingObject.p2endPageReached
-              ) {
-                setTimeout(() => {
-                  // Check if player1 connection is still valid and open
-                  if (connections.player1) {
-                    try {
-                      connections.player1.close();
-                    } catch (e) {
-                      console.error("Error closing player1 connection:", e);
-                    } finally {
-                      connections.player1 = null;
-                    }
-                  }
-
-                  // Check if player2 connection is still valid and open
-                  if (connections.player2) {
-                    try {
-                      connections.player2.close();
-                    } catch (e) {
-                      console.error("Error closing player2 connection:", e);
-                    } finally {
-                      connections.player2 = null;
-                    }
-                  }
-                }, 300000); // 5 minutes
-              }
-              break;
-            case "redirect":
-              if (ws === connections.player1) {
-                if (connections.player1 !== null) {
-                  connections.player1.close();
-                  connections.player1 = null;
-                } else {
-                  connections.player1 = null;
-                }
-              } else if (ws === connections.player2) {
-                if (connections.player2 !== null) {
-                  connections.player2.close();
-                  connections.player2 = null;
-                } else {
-                  connections.player2 = null;
-                }
-              }
-          }
-      }
-    });
-
-    ws.on("close", async () => {
-      if (connections.player1 === ws) removeConnection("player1");
-      else if (connections.player2 === ws) removeConnection("player2");
-      if (connections.player1 === null && connections.player2 === null) {
-        dataArray.push(state);
-      }
-    });
-    ws.on("error", console.error);
+  }
+  ws.on("pong", () => {
+    console.log("connection alive");
   });
-}
+  ws.on("message", async function message(m) {
+    const data = JSON.parse(m.toString("utf-8"));
+    console.log(data);
+    if (data.type === "heartbeat") {
+      console.log("connection alive");
+    }
+    switch (data.stage) {
+      case "intro":
+        handleIntroductionMessaging(data.type, ws, connections, data.data);
+        break;
+      case "practice":
+        switch (data.block) {
+          case "sep":
+            practiceSepMessaging(data, ws, connections);
+            break;
+          case "collab":
+            practiceCollabMessaging(data, ws, connections);
+            break;
+        }
+        break;
+      case "game":
+        switch (data.block) {
+          case "collab":
+            gameCollabMessaging(data, ws, connections);
+            break;
+          case "sep":
+            gameSepMessaging(data, ws, connections);
+            break;
+        }
+        break;
+      case "end":
+        switch (data.type) {
+          case "pageReached":
+            if (ws === connections.player1) {
+              trackingObject.p1endPageReached = true;
+            } else if (ws === connections.player2) {
+              trackingObject.p2endPageReached = true;
+            }
+            if (
+              trackingObject.p1endPageReached &&
+              trackingObject.p2endPageReached
+            ) {
+              setTimeout(() => {
+                // Check if player1 connection is still valid and open
+                if (connections.player1) {
+                  try {
+                    connections.player1.close();
+                  } catch (e) {
+                    console.error("Error closing player1 connection:", e);
+                  } finally {
+                    connections.player1 = null;
+                  }
+                }
+
+                // Check if player2 connection is still valid and open
+                if (connections.player2) {
+                  try {
+                    connections.player2.close();
+                  } catch (e) {
+                    console.error("Error closing player2 connection:", e);
+                  } finally {
+                    connections.player2 = null;
+                  }
+                }
+              }, 300000); // 5 minutes
+            }
+            break;
+          case "redirect":
+            if (ws === connections.player1) {
+              if (connections.player1 !== null) {
+                connections.player1.close();
+                connections.player1 = null;
+              } else {
+                connections.player1 = null;
+              }
+            } else if (ws === connections.player2) {
+              if (connections.player2 !== null) {
+                connections.player2.close();
+                connections.player2 = null;
+              } else {
+                connections.player2 = null;
+              }
+            }
+        }
+    }
+  });
+
+  ws.on("close", async () => {
+    const player: "player1"|"player2" = connections.player1 === ws ? "player1":"player2"
+    comms.removeConnection(connections, player)
+    if (connections.player1 === null && connections.player2 === null) {
+      dataArray.push(state);
+    }
+  });
+  ws.on("error", console.error)});

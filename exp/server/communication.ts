@@ -71,4 +71,19 @@ export async function sendState(
   }
 
 }
+export function ping(ws: import("ws").WebSocket) {
+  setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ stage: "ping" }));
+    }
+  }, 20 * 1000);
+}
+export function removeConnection(connections: types.connection ,player: "player1" | "player2") {
+  if (player === "player1") {
+    connections.player1 = null;
+  }
+  if (player === "player2") {
+    connections.player2 = null;
+  }
+}
 
