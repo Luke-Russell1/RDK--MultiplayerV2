@@ -1,6 +1,7 @@
 /*
 Includes a number of utility functions, nothing major
 */
+import * as types from "./types"
 export function createTimestamp(timestamp: number) {
   let newTimestamp = Date.now();
   let time = newTimestamp - timestamp;
@@ -29,3 +30,16 @@ export function resetDataArray(data: Array<any>) {
 export function deepCopy(obj: any) {
   return JSON.parse(JSON.stringify(obj));
 }
+export function findPlayerSocket(
+  ws: import("ws").WebSocket,
+  connections: types.connection
+): { playerID: "player1" | "player2"; socket: import("ws").WebSocket } | null {
+  for (const playerID of ["player1", "player2"] as const) {
+    const socket = connections[playerID];
+    if (socket === ws) {
+      return { playerID, socket };
+    }
+  }
+  return null; // not found
+}
+

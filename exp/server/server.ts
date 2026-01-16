@@ -10,6 +10,7 @@ import { start } from "node:repl";
 import { send } from "node:process";
 import * as utils from "./serverUtils";
 import * as types from "./types";
+import * as comms from "./communication"
 
 /*
 
@@ -29,13 +30,10 @@ const server = app.listen(port, () => {
 
 const wss = new WSServer({ server, path: "/coms" });
 
-const connections: {
-  player1: WebSocket | null;
-  player2: WebSocket | null;
-} = {
-  player1: null,
-  player2: null,
-};
+let connections: types.connection = {
+  player1: null, 
+  player2: null
+}
 let connectionArray: Array<WebSocket> = [];
 let mousePos: types.mouseTracking = {
   p1Screen: { width: 0, height: 0 },
@@ -113,18 +111,17 @@ let state: types.State = {
   P1RDK: structuredClone(baseRDK),
   P2RDK: structuredClone(baseRDK),
 };
-let gameInProgress = false;
 let currentStage = {};
 /*
 Initialising variable we need ot track timestamps, arrays for data, and to control messaging for both players.
 */
+let gameInProgress = false;
 let usedIDS: Array<number> = [];
-let dataArray: Array<any> = [];
+let dataArray: Array<types.State> = [];
 let mouseArray: Array<any> = [];
 let practiceTrialsDirections: Array<Array<string>> = [];
 let trialsDirections: Array<Array<string>> = [];
 let timeStamp = 0;
-let baseState = structuredClone(state);
 let trialTimeout: NodeJS.Timeout | null = null;
 let breakTimeout: NodeJS.Timeout | null = null;
 let blocks: Array<string> = [];
@@ -204,45 +201,6 @@ function removeConnection(player: "player1" | "player2") {
     connections.player2 = null;
   }
 }
-async function sendMessage(
-  connection: WebSocket,
-  message: string,
-  maxRetries: number = 10,
-  retryDelay: number = 100,
-): Promise<boolean> {
-  let attempt = 0;
-
-  while (attempt < maxRetries) {
-    try {
-      // Wrap the send operation in a promise
-      await new Promise<void>((resolve, reject) => {
-        connection.send(message, (error) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve();
-          }
-        });
-      });
-      // If send is successful, return true
-      return true;
-    } catch (error) {
-      attempt++;
-      if (attempt >= maxRetries) {
-        // If maximum attempts reached, reject the promise
-        throw new Error(
-          `Failed to send message after ${maxRetries} attempts: ${error}`,
-        );
-      }
-      // Wait before retrying
-      await new Promise((resolve) => setTimeout(resolve, retryDelay));
-    }
-  }
-
-  // This line will never be reached due to the throw in the catch block
-  return false;
-}
-
 async function chooseNewDirection(
   state: types.State,
   playerID: "player1" | "player2",
@@ -268,10 +226,10 @@ async function chooseNewDirection(
           data: direction,
           index: index,
         });
-        await sendMessage(connections.player1!, message);
+        await comms.sendMessage(connections.player1!, message);
 
-        await sendState(state, "player1", stage, block);
-        await sendState(state, "player2", stage, block);
+        await comms.sendState(state, "player1", connections, stage, block);
+        await comms.sendState(state, "player2", connections, stage, block);
       } else if (playerID === "player2") {
         let direction = utils.randomChoice(expValues.directions);
         state.P2RDK.direction[index] = direction;
@@ -282,9 +240,9 @@ async function chooseNewDirection(
           data: direction,
           index: index,
         });
-        await sendMessage(connections.player2!, message);
-        await sendState(state, "player1", stage, block);
-        await sendState(state, "player2", stage, block);
+        await comms.sendMessage(connections.player2!, message);
+        await comms.sendState(state, "player1", connections, stage, block);
+        await comms.sendState(state, "player2", connections, stage, block);
       }
       break;
     case "sep":
@@ -298,8 +256,8 @@ async function chooseNewDirection(
           data: direction,
           index: index,
         });
-        await sendMessage(connections.player1!, message);
-        await sendState(state, "player1", stage, block);
+        await comms.sendMessage(connections.player1!, message);
+        await comms.sendState(state, "player1", connections, stage, block);
       } else if (playerID === "player2") {
         let direction = utils.randomChoice(expValues.directions);
         state.P2RDK.direction[index] = direction;
@@ -310,8 +268,8 @@ async function chooseNewDirection(
           data: direction,
           index: index,
         });
-        await sendMessage(connections.player2!, message);
-        await sendState(state, "player2", stage, block);
+        await comms.sendMessage(connections.player2!, message);
+        await comms.sendState(state, "player2", connections, stage, block);
       }
       break;
   }
@@ -334,7 +292,7 @@ async function sendState(
       type: "state",
       data: state,
     });
-    await sendMessage(connections.player1!, message);
+    await comms.sendMessage(connections.player1!, message);
   } else if (playerID === "player2") {
     let newState = structuredClone(state);
     newState.P1RDK = state.P2RDK;
@@ -345,7 +303,7 @@ async function sendState(
       type: "state",
       data: newState,
     });
-    await sendMessage(connections.player2!, message);
+    await comms.sendMessage(connections.player2!, message);
   }
 }
 async function beginGame(
@@ -368,8 +326,8 @@ async function beginGame(
         data: state,
       });
       await Promise.all([
-        sendMessage(connections.player1!, collabMessage),
-        sendMessage(connections.player2!, collabMessage),
+        comms.sendMessage(connections.player1!, collabMessage),
+        comms.sendMessage(connections.player2!, collabMessage),
       ]);
       break;
     case "sep":
@@ -383,8 +341,8 @@ async function beginGame(
         data: state,
       });
       await Promise.all([
-        sendMessage(connections.player1!, sepMessage),
-        sendMessage(connections.player2!, sepMessage),
+        comms.sendMessage(connections.player1!, sepMessage),
+        comms.sendMessage(connections.player2!, sepMessage),
       ]);
   }
 }
@@ -571,11 +529,11 @@ async function handleRDKSelection(
             type: "playerChoice",
             data: data,
           });
-          await sendMessage(connections.player2!, choiceMessage);
-          await sendMessage(connections.player1!, loadMessage);
+          await comms.sendMessage(connections.player2!, choiceMessage);
+          await comms.sendMessage(connections.player1!, loadMessage);
           await Promise.all([
-            sendState(state, "player1", stage, block),
-            sendState(state, "player2", stage, block),
+            comms.sendState(state, "player1", connections, stage, block),
+            comms.sendState(state, "player2", connections, stage, block),
           ]);
         } else if (player === "player2") {
           state.RDK.player[data] = 2;
@@ -594,11 +552,11 @@ async function handleRDKSelection(
             type: "playerChoice",
             data: data,
           });
-          await sendMessage(connections.player1!, choiceMessage);
-          await sendMessage(connections.player2!, loadMessage);
+          await comms.sendMessage(connections.player1!, choiceMessage);
+          await comms.sendMessage(connections.player2!, loadMessage);
           await Promise.all([
-            sendState(state, "player1", stage, block),
-            sendState(state, "player2", stage, block),
+            comms.sendState(state, "player1", connections, stage, block),
+            comms.sendState(state, "player2", connections, stage, block),
           ]);
         }
       } else {
@@ -609,7 +567,7 @@ async function handleRDKSelection(
             type: "alreadySelected",
             data: data,
           });
-          await sendMessage(connections.player1!, message);
+          await comms.sendMessage(connections.player1!, message);
         } else if (player === "player2") {
           const message = JSON.stringify({
             stage: stage,
@@ -617,7 +575,7 @@ async function handleRDKSelection(
             type: "alreadySelected",
             data: data,
           });
-          await sendMessage(connections.player2!, message);
+          await comms.sendMessage(connections.player2!, message);
         }
       }
       break;
@@ -632,8 +590,8 @@ async function handleRDKSelection(
           type: "load",
           data: data,
         });
-        await sendMessage(connections.player1!, message);
-        await sendState(state, "player1", stage, block);
+        await comms.sendMessage(connections.player1!, message);
+        await comms.sendState(state, "player1", connections, stage, block);
       } else if (player === "player2") {
         state.P2RDK.choiceTime[data] = rt;
         state.P2RDK.choice.push(data);
@@ -644,8 +602,8 @@ async function handleRDKSelection(
           type: "load",
           data: data,
         });
-        await sendMessage(connections.player2!, message);
-        await sendState(state, "player2", stage, block);
+        await comms.sendMessage(connections.player2!, message);
+        await comms.sendState(state, "player2", connections, stage, block);
       }
       break;
   }
@@ -731,7 +689,7 @@ async function checkResponse(
               type: "completed",
               data: id,
             });
-            await sendMessage(connections.player1!, message);
+            await comms.sendMessage(connections.player1!, message);
             updateCollabStateOnResponse(
               state,
               "player1",
@@ -740,8 +698,8 @@ async function checkResponse(
               rt,
               totalRt,
             );
-            await sendState(state, "player1", stage, block);
-            await sendState(state, "player2", stage, block);
+            await comms.sendState(state, "player1", connections, stage, block);
+            await comms.sendState(state, "player2", connections, stage, block);
           } else if (state.RDK.direction[id] !== data) {
             await chooseNewDirection(state, "player1", id, stage, block);
             updateCollabStateOnResponse(
@@ -765,7 +723,7 @@ async function checkResponse(
               type: "completed",
               data: id,
             });
-            await sendMessage(connections.player2!, message);
+            await comms.sendMessage(connections.player2!, message);
             updateCollabStateOnResponse(
               state,
               "player2",
@@ -774,8 +732,8 @@ async function checkResponse(
               rt,
               totalRt,
             );
-            await sendState(state, "player1", stage, block);
-            await sendState(state, "player2", stage, block);
+            await comms.sendState(state, "player1", connections, stage, block);
+            await comms.sendState(state, "player2", connections, stage, block);
           } else if (state.RDK.direction[id] !== data) {
             await chooseNewDirection(state, "player2", id, stage, block);
             updateCollabStateOnResponse(
@@ -801,19 +759,19 @@ async function checkResponse(
               type: "completed",
               data: id,
             });
-            await sendMessage(connections.player1!, message);
+            await comms.sendMessage(connections.player1!, message);
             state.P1RDK.totalReactionTIme[id].push(totalRt);
             state.P1RDK.reactionTime[id].push(rt);
             state.P1RDK.completed[id] = true;
             state.P1RDK.attempts[id] += 1;
-            await sendState(state, "player1", stage, block);
+            await comms.sendState(state, "player1", connections, stage, block);
           } else if (state.RDK.direction[id] !== data) {
             await chooseNewDirection(state, "player1", id, stage, block);
             state.P1RDK.attempts[id] += 1;
             state.P1RDK.reactionTime[id].push(rt);
             state.P1RDK.totalReactionTIme[id].push(totalRt);
             state.P1RDK.incorrectDirection[id].push(state.P1RDK.direction[id]);
-            await sendState(state, "player1", stage, block);
+            await comms.sendState(state, "player1", connections, stage, block);
           }
         }
       }
@@ -827,34 +785,24 @@ async function checkResponse(
               type: "completed",
               data: id,
             });
-            await sendMessage(connections.player2!, message);
+            await comms.sendMessage(connections.player2!, message);
             state.P2RDK.totalReactionTIme[id].push(totalRt);
             state.P2RDK.reactionTime[id].push(rt);
             state.P2RDK.completed[id] = true;
             state.P2RDK.attempts[id] += 1;
-            await sendState(state, "player2", stage, block);
+            await comms.sendState(state, "player2", connections, stage, block);
           } else if (state.RDK.direction[id] !== data) {
             await chooseNewDirection(state, "player2", id, stage, block);
             state.P2RDK.attempts[id] += 1;
             state.P2RDK.reactionTime[id].push(rt);
             state.P2RDK.totalReactionTIme[id].push(totalRt);
             state.P2RDK.incorrectDirection[id].push(state.P2RDK.direction[id]);
-            await sendState(state, "player2", stage, block);
+            await comms.sendState(state, "player2", connections, stage, block);
           }
         }
       }
       break;
   }
-}
-function resetStateonConnection(data: types.State) {
-  let gameNo = data.gameNo;
-  let newState = Object.assign({}, baseState);
-  newState.gameNo = gameNo;
-  return newState;
-}
-function resetDataArray(data: Array<any>) {
-  let newData: Array<any> = [];
-  return newData;
 }
 
 function resetState(state: types.State, baseRDK: types.rdk, newBlock: boolean) {
@@ -905,20 +853,6 @@ function checkCompleted(
     }
   }
 }
-function endTrialEarly(
-  state: types.State,
-  block: string,
-  player: "player1" | "player2" | null,
-) {
-  if (checkCompleted(state, block, player) === true) {
-    if (block === "collab") {
-      if (trialTimeout !== null) {
-        clearTimeout(trialTimeout);
-        startBreak(block);
-      }
-    }
-  }
-}
 async function checkBlockCompleted(
   state: types.State,
   block: string,
@@ -938,8 +872,8 @@ async function checkBlockCompleted(
       });
       currentStage = { stage: `${block}Instructions`, block: block };
       await Promise.all([
-        sendMessage(connections.player1!, message),
-        sendMessage(connections.player2!, message),
+        comms.sendMessage(connections.player1!, message),
+        comms.sendMessage(connections.player2!, message),
       ]);
       await writeData(dataArray, "A");
       state.block = blocks[1];
@@ -953,7 +887,6 @@ async function checkBlockCompleted(
       let endTime = new Date();
       state.endTime = endTime.toISOString();
       await writeData(dataArray, "B");
-      await resetVars();
       const p1Message = JSON.stringify({
         stage: "game",
         block: block,
@@ -969,8 +902,8 @@ async function checkBlockCompleted(
         platform: state.player2.platform,
       });
       await Promise.all([
-        sendMessage(connections.player1!, p1Message),
-        sendMessage(connections.player2!, p2Message),
+        comms.sendMessage(connections.player1!, p1Message),
+        comms.sendMessage(connections.player2!, p2Message),
       ]);
       await closeConnections();
       return true;
@@ -979,19 +912,7 @@ async function checkBlockCompleted(
     }
   }
 }
-async function resetVars() {
-  if (trialTimeout) {
-    clearTimeout(trialTimeout);
-  }
-  if (breakTimeout) {
-    clearTimeout(breakTimeout);
-  }
-  state = structuredClone(baseState);
-  trackingObject = structuredClone(trackingObjectCopy);
-  dataArray = [];
-  gameInProgress = false;
-  currentStage = "";
-}
+
 function calculateBreakInfo(state: types.State, player: "player1" | "player2") {
   /*
   Calculates info to display on the break screen, switching it to show the correct info for each player.
@@ -1036,8 +957,8 @@ async function startTrials(block: string) {
       data: state,
     });
     await Promise.all([
-      sendMessage(connections.player1!, message),
-      sendMessage(connections.player2!, message),
+      comms.sendMessage(connections.player1!, message),
+      comms.sendMessage(connections.player2!, message),
     ]);
 
     trialTimeout = setTimeout(() => {
@@ -1078,8 +999,8 @@ async function startBreak(block: string) {
         data: p2BreakInfo,
       });
       await Promise.all([
-        sendMessage(connections.player1!, message1),
-        sendMessage(connections.player2!, message2),
+        comms.sendMessage(connections.player1!, message1),
+        comms.sendMessage(connections.player2!, message2),
       ]);
       breakTimeout = setTimeout(() => {
         startTrials(block);
@@ -1114,8 +1035,8 @@ async function handlePracticeTrials(
       data: state,
     });
     await Promise.all([
-      sendMessage(connections.player1!, message),
-      sendMessage(connections.player2!, message),
+      comms.sendMessage(connections.player1!, message),
+      comms.sendMessage(connections.player2!, message),
     ]);
     if (state.trialNo < 7) {
       trialTimeout = setTimeout(() => {
@@ -1168,8 +1089,8 @@ async function startPracticeBreak(block: string) {
 
       // Send break message after incrementing trialNo and scheduling next trial
       await Promise.all([
-        sendMessage(connections.player1!, p1Message),
-        sendMessage(connections.player2!, p2Message),
+        comms.sendMessage(connections.player1!, p1Message),
+        comms.sendMessage(connections.player2!, p2Message),
       ]);
 
       if (state.trialNo <= 7) {
@@ -1200,8 +1121,8 @@ async function startPracticeBreak(block: string) {
       data: state,
     });
     await Promise.all([
-      sendMessage(connections.player1!, message),
-      sendMessage(connections.player2!, message),
+      comms.sendMessage(connections.player1!, message),
+      comms.sendMessage(connections.player2!, message),
     ]);
     state.block = "collab";
   } else if (block === "collab" && state.trialNo === 10) {
@@ -1212,8 +1133,8 @@ async function startPracticeBreak(block: string) {
     });
     currentStage = { stage: `practiceEnd`, block: blocks[0] };
     await Promise.all([
-      sendMessage(connections.player1!, message),
-      sendMessage(connections.player2!, message),
+      comms.sendMessage(connections.player1!, message),
+      comms.sendMessage(connections.player2!, message),
     ]);
     state.stage = "game";
     state.block = blocks[0];
@@ -1321,12 +1242,14 @@ function skipToBlock(stage: string, block: string) {
 async function handleIntroductionMessaging(
   type: string,
   ws: WebSocket,
-  connections: any,
+  connections: types.connection,
   data: any,
 ) {
+  const socket = utils.findPlayerSocket(ws, connections)
+
   switch (type) {
     case "consent":
-      if (ws === connections.player1) {
+      if (connections.player1 === ws) {
         state.player1.consent = true;
         state.player1.age = Number(data.age);
         state.player1.gender = data.gender;
@@ -1396,7 +1319,6 @@ async function practiceSepMessaging(
           data.block,
         );
         currentStage = { stage: "practice", block: "sep" };
-        gameInProgress = true;
         trackingObject.p1PracticeReady = false;
         trackingObject.p2PracticeReady = false;
       }
@@ -1767,11 +1689,11 @@ async function handleExpStart(state: types.State, dataArray: any) {
   state.stage = "intro";
   state.block = "consentForm";
   state.RDK.coherence = shuffle(expValues.coherence);
-  dataArray = resetDataArray(dataArray);
+  dataArray = utils.resetDataArray(dataArray);
   const message = JSON.stringify({ stage: "intro", type: "consentForm" });
   await Promise.all([
-    sendMessage(connections.player1!, message),
-    sendMessage(connections.player2!, message),
+    comms.sendMessage(connections.player1!, message),
+    comms.sendMessage(connections.player2!, message),
   ]);
   return { state, dataArray, trackingObject };
 }
@@ -1788,7 +1710,7 @@ async function handleInitialConnection(
       clearTimeout(inactivityTimer);
     }
     connections.player1 = ws;
-    await sendMessage(connections.player1, message);
+    await comms.sendMessage(connections.player1, message);
     ping(ws);
     dataArray.push(state);
   } else if (player === "player2") {
@@ -1796,7 +1718,7 @@ async function handleInitialConnection(
       clearTimeout(inactivityTimer);
     }
     connections.player2 = ws;
-    await sendMessage(connections.player2, message);
+    await comms.sendMessage(connections.player2, message);
     ping(ws);
   }
 }
@@ -1807,10 +1729,10 @@ async function handleReconnect(
 ) {
   if (player === "player1") {
     connections.player1 = ws;
-    await sendMessage(connections.player1, message);
+    await comms.sendMessage(connections.player1, message);
   } else if (player === "player2") {
     connections.player2 = ws;
-    await sendMessage(connections.player2, message);
+    await comms.sendMessage(connections.player2, message);
   }
 }
 function closeConnections() {
@@ -1825,7 +1747,7 @@ async function handleExtraConnection(ws: WebSocket) {
   */
   let message = JSON.stringify({ stage: "waitingExpEndRoom" });
   connectionArray.push(ws);
-  await sendMessage(ws, message);
+  await comms.sendMessage(ws, message);
 }
 function startInactivityTimer() {
   if (inactivityTimer) {
@@ -1833,8 +1755,6 @@ function startInactivityTimer() {
   }
 
   // Set a new timeout to kill the process
-  resetVars();
-
   wss.on("connection", async function (ws) {
     if (connections.player1 === null) {
       if (gameInProgress === false) {
@@ -1978,7 +1898,6 @@ function startInactivityTimer() {
       if (connections.player1 === ws) removeConnection("player1");
       else if (connections.player2 === ws) removeConnection("player2");
       if (connections.player1 === null && connections.player2 === null) {
-        await resetVars();
         dataArray.push(state);
       }
     });

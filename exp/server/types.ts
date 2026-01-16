@@ -1,6 +1,10 @@
 /*
 Standard types that we use for tracking data and player connections
 */
+export type connection = {
+  player1: import("ws").WebSocket | null, 
+  player2: import("ws").WebSocket | null
+}
 export type Player = {
   connectTime: any;
   id: any;
